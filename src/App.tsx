@@ -6,11 +6,14 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Shield, Zap, Heart, Swords, RefreshCw, ChevronRight, 
-  Skull, Activity, ZapOff, Database, Trash2, Play, Info, Flame
+  Skull, Activity, ZapOff, Database, Trash2, Play, Info, Flame,
+  ShoppingCart, Coins, Search, HeartPulse, Star, Disc, Crosshair, ShieldCheck, Briefcase, X, Cpu,
+  Snowflake, CheckCircle2, Circle, Gift, Package, Clock, Share2, ShieldAlert, Coffee, Lock, Layers
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Card, EntityState, LogEntry, StatusEffect, Intent, IntentType, StatusType, Relic, MapNode, NodeType } from './types';
-import { POKEMON_DB, INITIAL_DECKS, TERMINOLOGY, RELICS_DB, ENEMIES_DB, JUNK_CARD } from './constants';
+import { io, Socket } from 'socket.io-client';
+import { Card, EntityState, LogEntry, StatusEffect, Intent, IntentType, StatusType, Relic, MapNode, NodeType, CombatPiles, Consumable, Task, Phase, EndlessState, ShopUpgrade, PVPState } from './types';
+import { POKEMON_DB, INITIAL_DECKS, TERMINOLOGY, RELICS_DB, ENEMIES_DB, JUNK_CARD, CONSUMABLES_DB, TASKS_DB, SHOP_UPGRADES_DB, CARDS_DB } from './constants';
 
 // --- Helpers ---
 const shuffle = <T,>(array: T[]): T[] => {
@@ -26,6 +29,20 @@ const generateUUID = () => Math.random().toString(36).substring(2, 11);
 
 // --- Components ---
 
+const SpeechBubble = ({ text, side }: { text: string, side: 'left' | 'right' }) => (
+  <motion.div
+    initial={{ opacity: 0, scale: 0.5, y: 20 }}
+    animate={{ opacity: 1, scale: 1, y: 0 }}
+    exit={{ opacity: 0, scale: 0.5, y: 20 }}
+    className={`absolute -top-24 ${side === 'left' ? 'left-1/2 -translate-x-1/2' : 'right-1/2 translate-x-1/2'} z-50 pointer-events-none`}
+  >
+    <div className="bg-white text-black px-4 py-2 rounded-2xl font-black text-sm shadow-[0_10px_30px_rgba(0,0,0,0.5)] border-2 border-black relative whitespace-nowrap">
+      {text}
+      <div className={`absolute bottom-[-10px] left-1/2 -translate-x-1/2 w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-t-[10px] border-t-white`}></div>
+    </div>
+  </motion.div>
+);
+
 const StatusIcon = ({ effect }: { effect: StatusEffect, key?: any }) => {
   const icons: Record<StatusType, React.ReactNode> = {
     VULNERABLE: <Skull className="w-3 h-3 text-red-400" />,
@@ -37,6 +54,9 @@ const StatusIcon = ({ effect }: { effect: StatusEffect, key?: any }) => {
     CHARGE: <Zap className="w-3 h-3 text-yellow-400 animate-pulse" />,
     OVERLOAD: <Flame className="w-3 h-3 text-orange-600" />,
     OVERWRITE: <RefreshCw className="w-3 h-3 text-cyan-400" />,
+    BURN: <Flame className="w-3 h-3 text-red-600" />,
+    FREEZE: <Snowflake className="w-3 h-3 text-blue-300" />,
+    COMBO: <Zap className="w-3 h-3 text-yellow-500 animate-bounce" />,
   };
 
   const labels: Record<StatusType, string> = {
@@ -49,6 +69,9 @@ const StatusIcon = ({ effect }: { effect: StatusEffect, key?: any }) => {
     CHARGE: '电荷储备 (3层时伤害翻倍)',
     OVERLOAD: '核心过载 (出牌受损)',
     OVERWRITE: '覆写模式',
+    BURN: '系统过热 (每回合伤害)',
+    FREEZE: '核心冻结 (行动受限)',
+    COMBO: '连击点数 (增加伤害)',
   };
 
   return (
@@ -71,33 +94,146 @@ const IntentDisplay = ({ intent }: { intent?: Intent }) => {
     DEBUFF: <Skull className="w-6 h-6 text-purple-500" />,
     UNKNOWN: <Info className="w-6 h-6 text-gray-500" />,
     CURSE: <Lock className="w-6 h-6 text-gray-700" />,
+    STUN: <ZapOff className="w-6 h-6 text-yellow-600 animate-pulse" />,
   };
 
   return (
     <motion.div 
       initial={{ y: 10, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      className="absolute -top-16 left-1/2 -translate-x-1/2 flex flex-col items-center"
+      className="absolute -top-20 left-1/2 -translate-x-1/2 flex flex-col items-center z-30"
     >
-      <div className="relative">
-        {icons[intent.type]}
-        {intent.value && (
-          <span className="absolute -right-4 top-0 text-lg font-black text-white drop-shadow-md">
-            {intent.value}
-          </span>
+      <div className="relative group">
+        <div className="absolute inset-0 bg-white/20 blur-xl rounded-full scale-0 group-hover:scale-150 transition-transform duration-500" />
+        <div className="relative bg-black/60 backdrop-blur-md border border-white/20 p-2 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.1)] flex items-center gap-2">
+          {icons[intent.type]}
+          {intent.value && (
+            <span className="text-2xl font-black text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]">
+              {intent.value}
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="mt-1 px-2 py-0.5 bg-white/5 border border-white/10 rounded text-[8px] uppercase font-mono text-white/80 tracking-widest backdrop-blur-sm">
+        {intent.desc}
+      </div>
+    </motion.div>
+  );
+};
+
+const IntroSequence = ({ onComplete }: { onComplete: () => void }) => {
+  const [step, setStep] = useState(0);
+  const [lines, setLines] = useState<string[]>([]);
+  const fullLines = [
+    "> 警告：检测到未经授权的访问...",
+    "> 防火墙在 7G 扇区被突破",
+    "> 病毒特征：'POKEMON_GLITCH_V2'",
+    "> 系统完整度下降：42%...",
+    "> 正在启动 AI 反制措施...",
+    "> 正在加载神经模型：'AEGIS_PROTO'...",
+    "> 正在生成战斗化身...",
+    "> 任务：清除所有恶意数据。"
+  ];
+
+  useEffect(() => {
+    if (step < fullLines.length) {
+      const timer = setTimeout(() => {
+        setLines(prev => [...prev, fullLines[step]]);
+        setStep(s => s + 1);
+      }, 600);
+      return () => clearTimeout(timer);
+    } else {
+      const timer = setTimeout(() => onComplete(), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [step, onComplete, fullLines]);
+
+  return (
+    <div className="h-full w-full bg-black flex flex-col items-center justify-center p-8 font-mono overflow-hidden">
+      <div className="w-full max-w-2xl border border-red-500/30 bg-red-950/10 p-6 rounded-lg shadow-[0_0_50px_rgba(239,68,68,0.1)] relative">
+        <div className="absolute top-0 left-0 w-full h-1 bg-red-500/50 animate-pulse" />
+        
+        <div className="flex items-center gap-3 mb-6 border-b border-red-500/20 pb-4">
+          <ShieldAlert className="w-6 h-6 text-red-500 animate-bounce" />
+          <span className="text-red-500 font-black tracking-widest uppercase">系统入侵警告</span>
+        </div>
+
+        <div className="space-y-2 min-h-[240px]">
+          <AnimatePresence>
+            {lines.map((line, i) => (
+              <motion.div
+                key={i}
+                initial={{ x: -20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                className={`${line.includes('ALERT') || line.includes('BREACHED') ? 'text-red-400' : 'text-cyan-400'} text-sm md:text-base`}
+              >
+                {line}
+              </motion.div>
+            ))}
+          </AnimatePresence>
+          {step < fullLines.length && (
+            <motion.div
+              animate={{ opacity: [0, 1] }}
+              transition={{ repeat: Infinity, duration: 0.5 }}
+              className="w-2 h-5 bg-cyan-500 inline-block align-middle ml-1"
+            />
+          )}
+        </div>
+
+        {step >= 5 && (
+          <motion.div 
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="mt-8 flex justify-center"
+          >
+            <div className="relative w-32 h-32">
+              <div className="absolute inset-0 border-2 border-cyan-500 rounded-full animate-ping opacity-20" />
+              <div className="absolute inset-0 border-2 border-cyan-500 rounded-full animate-spin [animation-duration:3s]" />
+              <div className="absolute inset-4 border border-cyan-400/30 rounded-full animate-reverse-spin [animation-duration:5s]" />
+              <Database className="absolute inset-0 m-auto w-12 h-12 text-cyan-400 animate-pulse" />
+            </div>
+          </motion.div>
         )}
       </div>
-      <span className="text-[10px] uppercase font-mono text-white/60 tracking-tighter mt-1">{intent.desc}</span>
-    </motion.div>
+
+      <div className="mt-12 flex flex-col items-center">
+        <p className="text-white/20 text-[10px] uppercase tracking-[0.5em] mb-4">Neural Link Establishing...</p>
+        <div className="w-64 h-1 bg-white/5 rounded-full overflow-hidden">
+          <motion.div 
+            initial={{ width: 0 }}
+            animate={{ width: `${(step / fullLines.length) * 100}%` }}
+            className="h-full bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.5)]"
+          />
+        </div>
+      </div>
+
+      {/* Matrix Rain Background Effect */}
+      <div className="absolute inset-0 pointer-events-none opacity-10">
+        <div className="grid grid-cols-12 gap-4 h-full">
+          {[...Array(12)].map((_, i) => (
+            <motion.div
+              key={i}
+              initial={{ y: -1000 }}
+              animate={{ y: 1000 }}
+              transition={{ repeat: Infinity, duration: 2 + Math.random() * 3, ease: "linear", delay: Math.random() * 2 }}
+              className="text-cyan-500 text-[8px] whitespace-nowrap writing-mode-vertical"
+            >
+              {Math.random().toString(2).substring(2, 20)}
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 };
 
 export default function App() {
   // --- Game State ---
-  const [phase, setPhase] = useState<'START' | 'SELECT' | 'MAP' | 'BATTLE' | 'REWARD' | 'SHOP' | 'REST' | 'GAMEOVER' | 'VICTORY'>('START');
+  const [phase, setPhase] = useState<Phase>('INTRO');
   const [floor, setFloor] = useState(1);
   const [relics, setRelics] = useState<Relic[]>([]);
-  const [gold, setGold] = useState(0);
+  const [gold, setGold] = useState(100);
+  const [permanentDeck, setPermanentDeck] = useState<Card[]>([]);
   const [map, setMap] = useState<MapNode[]>([]);
   const [currentNodeId, setCurrentNodeId] = useState<string | null>(null);
   const [turn, setTurn] = useState<'PLAYER' | 'ENEMY'>('PLAYER');
@@ -109,6 +245,593 @@ export default function App() {
   const [floatingTexts, setFloatingTexts] = useState<{id: string, text: string, color: string, x: number, y: number}[]>([]);
   const [activeVfx, setActiveVfx] = useState<{type: string, target: 'PLAYER' | 'ENEMY'} | null>(null);
   const [shopCards, setShopCards] = useState<Card[]>([]);
+  const [shopRelics, setShopRelics] = useState<Relic[]>([]);
+  const [shopConsumables, setShopConsumables] = useState<Consumable[]>([]);
+  const [inventory, setInventory] = useState<Consumable[]>([]);
+  const [tasks, setTasks] = useState<Task[]>(TASKS_DB);
+  const [lastCheckIn, setLastCheckIn] = useState<string | null>(null);
+  const [showTasks, setShowTasks] = useState(false);
+  const [showDiagnostic, setShowDiagnostic] = useState(false);
+  const [showGacha, setShowGacha] = useState(false);
+  const [gachaTickets, setGachaTickets] = useState(0);
+  const [gachaResult, setGachaResult] = useState<any>(null);
+  const [isGachaSpinning, setIsGachaSpinning] = useState(false);
+  const [diagnosticStep, setDiagnosticStep] = useState<'CHOICE' | 'REMOVE' | 'REPAIR'>('CHOICE');
+  const [party, setParty] = useState<EntityState[]>([]);
+  const [activePokemonIndex, setActivePokemonIndex] = useState(0);
+  const [rewards, setRewards] = useState<Card[]>([]);
+  const [showBackpack, setShowBackpack] = useState(false);
+  const [showPartySwitch, setShowPartySwitch] = useState(false);
+  const [showEvolution, setShowEvolution] = useState(false);
+  const [shopUpgrades, setShopUpgrades] = useState<ShopUpgrade[]>([]);
+  const [purchasedUpgrades, setPurchasedUpgrades] = useState<string[]>([]);
+
+  const addLog = (msg: string, type: 'system' | 'player' | 'enemy') => {
+    setLogs(prev => [{ id: generateUUID(), msg, type }, ...prev].slice(0, 50));
+  };
+
+  // Endless Tower State
+  const [endlessLineup, setEndlessLineup] = useState<{
+    player: EntityState[];
+    enemy: EntityState[];
+    playerIdx: number;
+    enemyIdx: number;
+    wave: number;
+  }>({
+    player: [],
+    enemy: [],
+    playerIdx: 0,
+    enemyIdx: 0,
+    wave: 1
+  });
+
+  const [pvpState, setPvpState] = useState<PVPState | null>(null);
+  const [isSearchingMatch, setIsSearchingMatch] = useState(false);
+  const socketRef = useRef<Socket | null>(null);
+
+  const updateTaskProgress = (type: Task['type'], amount: number) => {
+    setTasks(prev => prev.map(t => {
+      if (t.type === type && !t.isClaimed) {
+        const newProgress = Math.min(t.target, t.progress + amount);
+        return { ...t, progress: newProgress };
+      }
+      return t;
+    }));
+  };
+
+  const handleCheckIn = () => {
+    const today = new Date().toISOString().split('T')[0];
+    if (lastCheckIn !== today) {
+      setLastCheckIn(today);
+      setGold(prev => prev + 50);
+      addFloatingText('+50 签到奖励', '#facc15', 'PLAYER');
+      updateTaskProgress('DAILY_LOGIN', 1);
+    }
+  };
+
+  useEffect(() => {
+    // Initialize socket
+    socketRef.current = io();
+
+    socketRef.current.on('match_found', ({ roomId, opponentId, opponentData, isFirst }) => {
+      setPvpState({
+        roomId,
+        opponentId,
+        opponentName: opponentData.name,
+        opponentPokemon: opponentData.pokemon,
+        isMyTurn: isFirst,
+        turnNumber: 1,
+        opponentHandCount: 5,
+        opponentShield: 0,
+        opponentHp: opponentData.pokemon.maxHp,
+        opponentMaxHp: opponentData.pokemon.maxHp,
+      });
+      setIsSearchingMatch(false);
+      setPhase('PVP_BATTLE');
+      
+      // Initialize PVP combat piles
+      const deck = shuffle(permanentDeck.filter(c => c.isEquipped));
+      setPiles({
+        deck: deck.slice(5),
+        hand: deck.slice(0, 5),
+        discard: [],
+      });
+      
+      // Sync initial state
+      socketRef.current?.emit('join_room', roomId);
+    });
+
+    socketRef.current.on('opponent_action', (action: any) => {
+      handleOpponentAction(action);
+    });
+
+    return () => {
+      socketRef.current?.disconnect();
+    };
+  }, [permanentDeck]);
+
+  const handleOpponentAction = (action: any) => {
+    switch (action.type) {
+      case 'PLAY_CARD':
+        // Handle opponent playing a card
+        const card = action.card;
+        // Apply effects to player (me)
+        if (card.damage) {
+          const actualDamage = Math.max(0, card.damage - player.shield);
+          setPlayer(prev => {
+            const newHp = Math.max(0, prev.hp - actualDamage);
+            if (newHp <= 0 && pvpState) {
+              setWinner('ENEMY');
+              setPhase('GAMEOVER');
+              socketRef.current?.emit('game_action', {
+                roomId: pvpState.roomId,
+                action: { type: 'GAME_OVER', winner: 'PLAYER' }
+              });
+            }
+            return {
+              ...prev,
+              hp: newHp,
+              shield: Math.max(0, prev.shield - card.damage),
+            };
+          });
+        }
+        if (card.statusEffect) {
+          setPlayer(prev => ({
+            ...prev,
+            statusEffects: [...prev.statusEffects, card.statusEffect],
+          }));
+        }
+        // Update opponent state
+        setPvpState(prev => prev ? {
+          ...prev,
+          opponentHandCount: prev.opponentHandCount - 1,
+          opponentShield: prev.opponentShield + (card.shield || 0),
+          opponentHp: prev.opponentHp + (card.heal || 0),
+        } : null);
+        addLog(`${pvpState?.opponentName} 使用了 ${card.name}`, 'enemy');
+        break;
+      case 'END_TURN':
+        setPvpState(prev => prev ? { ...prev, isMyTurn: true, turnNumber: prev.turnNumber + 1 } : null);
+        startMyPVPTurn();
+        break;
+      case 'UPDATE_STATE':
+        setPvpState(prev => prev ? { ...prev, ...action.state } : null);
+        break;
+      case 'GAME_OVER':
+        if (action.winner === 'PLAYER') {
+          setWinner('ENEMY');
+          setPhase('GAMEOVER');
+        } else {
+          setWinner('PLAYER');
+          setPhase('VICTORY');
+        }
+        break;
+    }
+  };
+
+  const startMyPVPTurn = () => {
+    setPlayer(prev => prev ? { ...prev, energy: prev.maxEnergy, shield: 0 } : null);
+    const { hand, deck, discard } = piles;
+    let newDeck = [...deck];
+    let newDiscard = [...discard];
+    let newHand = [...hand];
+
+    // Draw 5 cards
+    for (let i = 0; i < 5; i++) {
+      if (newDeck.length === 0) {
+        newDeck = shuffle(newDiscard);
+        newDiscard = [];
+      }
+      if (newDeck.length > 0) {
+        newHand.push(newDeck.shift()!);
+      }
+    }
+
+    setPiles({ hand: newHand, deck: newDeck, discard: newDiscard });
+    addLog("你的回合开始", 'system');
+  };
+
+  const joinPVPLobby = () => {
+    setPhase('PVP_LOBBY');
+    setIsSearchingMatch(true);
+    socketRef.current?.emit('join_queue', {
+      name: 'Player', // In a real app, this would be the user's name
+      pokemon: player,
+    });
+  };
+
+  const leavePVPLobby = () => {
+    setIsSearchingMatch(false);
+    socketRef.current?.emit('leave_queue');
+    setPhase('HUB');
+  };
+
+  const startAiBattle = () => {
+    if (!player) return;
+    const randomOpponent = POKEMON_DB[Math.floor(Math.random() * POKEMON_DB.length)];
+    const initialPvpState: PVPState = {
+      roomId: 'ai-room',
+      opponentId: 'ai-bot',
+      opponentName: '虚拟AI对手',
+      opponentPokemon: {
+        ...randomOpponent,
+        hp: randomOpponent.maxHp,
+        maxHp: randomOpponent.maxHp,
+        shield: 0,
+        energy: randomOpponent.maxEnergy,
+        maxEnergy: randomOpponent.maxEnergy,
+        statusEffects: [],
+        level: 50,
+        xp: 0,
+        nextXp: 100
+      },
+      isMyTurn: true,
+      turnNumber: 1,
+      opponentHandCount: 5,
+      opponentShield: 0,
+      opponentHp: randomOpponent.maxHp,
+      opponentMaxHp: randomOpponent.maxHp,
+      isAiOpponent: true
+    };
+
+    setPvpState(initialPvpState);
+    setPhase('PVP_BATTLE');
+    
+    // Initialize piles
+    const deck = shuffle(permanentDeck.filter(c => c.isEquipped));
+    setPiles({
+      deck: deck.slice(5),
+      hand: deck.slice(0, 5),
+      discard: [],
+    });
+    addLog("练习赛开始 (VS AI)", 'system');
+  };
+
+  useEffect(() => {
+    if (phase === 'PVP_BATTLE' && pvpState?.isAiOpponent && !pvpState.isMyTurn) {
+      const aiThink = async () => {
+        await new Promise(r => setTimeout(r, 1500));
+        
+        // AI plays a card
+        const aiCards = INITIAL_DECKS[pvpState.opponentPokemon.id];
+        const randomCard = aiCards[Math.floor(Math.random() * aiCards.length)];
+        
+        if (randomCard.damage) {
+          const actualDamage = Math.max(0, randomCard.damage - (player?.shield || 0));
+          setPlayer(prev => {
+            if (!prev) return null;
+            const newHp = Math.max(0, prev.hp - actualDamage);
+            if (newHp <= 0) {
+              setWinner('ENEMY');
+              setPhase('GAMEOVER');
+            }
+            return { ...prev, hp: newHp, shield: Math.max(0, prev.shield - randomCard.damage!) };
+          });
+        }
+        
+        if (randomCard.shield) {
+          setPvpState(prev => prev ? { ...prev, opponentShield: prev.opponentShield + randomCard.shield! } : null);
+        }
+
+        addLog(`AI 使用了 ${randomCard.name}`, 'enemy');
+        addFloatingText(randomCard.name, pvpState.opponentPokemon.color, 'ENEMY');
+
+        await new Promise(r => setTimeout(r, 1000));
+        
+        setPvpState(prev => prev ? { ...prev, isMyTurn: true, turnNumber: prev.turnNumber + 1, opponentShield: 0 } : null);
+        startMyPVPTurn();
+      };
+      
+      aiThink();
+    }
+  }, [phase, pvpState?.isMyTurn, pvpState?.isAiOpponent]);
+
+  const claimTaskReward = (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (task && task.progress >= task.target && !task.isClaimed) {
+      setGold(prev => prev + task.reward);
+      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, isClaimed: true } : t));
+      addFloatingText(`+${task.reward} 任务奖励`, '#facc15', 'PLAYER');
+    }
+  };
+
+  const handleEvolve = (pokemonIndex: number) => {
+    const p = party[pokemonIndex];
+    if (!p || !p.evolutionLevel || !p.evolvesTo) return;
+    if (p.level < p.evolutionLevel) {
+      addFloatingText(`等级不足 (需要 Lv.${p.evolutionLevel})`, '#ef4444', 'PLAYER');
+      return;
+    }
+
+    const nextForm = POKEMON_DB.find(dbP => dbP.id === p.evolvesTo);
+    if (!nextForm) return;
+
+    setParty(prev => {
+      const newParty = [...prev];
+      newParty[pokemonIndex] = {
+        ...p,
+        ...nextForm,
+        hp: nextForm.maxHp,
+        maxHp: nextForm.maxHp,
+        maxEnergy: nextForm.maxEnergy,
+      };
+      return newParty;
+    });
+
+    // Add Ultimate Card
+    const ultimateCard: Card = {
+      id: `ult_${p.id}`,
+      uid: generateUUID(),
+      name: `${nextForm.name.split(' ')[0]} 终极协议`,
+      type: 'ATTACK',
+      rarity: 'RARE',
+      cost: 3,
+      damage: 50,
+      desc: `造成 50 点伤害。消耗。`,
+      vfx: 'explosion',
+      isExhaust: true,
+    };
+    setPermanentDeck(prev => [...prev, ultimateCard]);
+
+    addFloatingText(`${p.name} 进化为 ${nextForm.name}!`, '#facc15', 'PLAYER');
+    setIsGlitching(true);
+    setTimeout(() => setIsGlitching(false), 1000);
+    setShowEvolution(false);
+  };
+
+  const refreshShop = () => {
+    const baseRefreshCost = 50;
+    const hasDataMiner = purchasedUpgrades.includes('data_miner');
+    const cost = hasDataMiner ? Math.floor(baseRefreshCost / 2) : baseRefreshCost;
+
+    if (gold < cost) {
+      addFloatingText(`信用点不足 (${cost})`, '#ef4444', 'PLAYER');
+      return;
+    }
+
+    setGold(prev => prev - cost);
+    
+    // Refresh Cards
+    const allCards = Object.values(INITIAL_DECKS).flat();
+    const hasPremium = purchasedUpgrades.includes('premium_access');
+    const randomCards = shuffle(allCards).slice(0, 3).map(c => {
+      let basePrice = 50;
+      if (c.rarity === 'UNCOMMON') basePrice = 100;
+      if (c.rarity === 'RARE') basePrice = 180;
+      if (c.rarity === 'STARTER') basePrice = 30;
+      
+      // Premium access increases chance of rare cards (though here we just pick random, 
+      // maybe we should filter by rarity if premium is active)
+      
+      return { 
+        ...c, 
+        uid: generateUUID(),
+        price: basePrice + Math.floor(Math.random() * 20)
+      };
+    });
+    setShopCards(randomCards as any);
+
+    // Refresh Relics
+    const relicsPool = shuffle(RELICS_DB).filter(r => !relics.find(pr => pr.id === r.id)).slice(0, 2);
+    setShopRelics(relicsPool);
+
+    // Refresh Consumables
+    const consumablesPool = shuffle(CONSUMABLES_DB).slice(0, 3);
+    setShopConsumables(consumablesPool);
+
+    // Refresh Upgrades
+    const upgradesPool = shuffle(SHOP_UPGRADES_DB).filter(u => !purchasedUpgrades.includes(u.id)).slice(0, 2);
+    setShopUpgrades(upgradesPool);
+
+    addFloatingText('商店已刷新', '#facc15', 'PLAYER');
+  };
+
+  const gainXp = (amount: number) => {
+    setParty(prev => prev.map((p, i) => {
+      if (i === activePokemonIndex) {
+        let newXp = p.xp + amount;
+        let newLevel = p.level;
+        let newMaxHp = p.maxHp;
+        let newMaxEnergy = p.maxEnergy;
+        let newNextXp = p.nextXp;
+
+        while (newXp >= newNextXp) {
+          newXp -= newNextXp;
+          newLevel++;
+          newMaxHp += 10;
+          if (newLevel % 5 === 0) newMaxEnergy += 1;
+          newNextXp = Math.floor(newNextXp * 1.2);
+          addFloatingText(`LEVEL UP! LVL ${newLevel}`, '#facc15', 'PLAYER');
+        }
+
+        const updated = { ...p, xp: newXp, level: newLevel, maxHp: newMaxHp, maxEnergy: newMaxEnergy, nextXp: newNextXp };
+        if (i === activePokemonIndex) setPlayer(updated);
+        return updated;
+      }
+      return p;
+    }));
+  };
+
+  const handleDiagnostic = (type: 'REMOVE' | 'REPAIR') => {
+    if (type === 'REMOVE') {
+      if (gold < 75) {
+        addFloatingText('信用点不足 (75)', '#ef4444', 'PLAYER');
+        return;
+      }
+      setDiagnosticStep('REMOVE');
+    } else {
+      if (gold < 50) {
+        addFloatingText('信用点不足 (50)', '#ef4444', 'PLAYER');
+        return;
+      }
+      setGold(prev => prev - 50);
+      setPlayer(p => p ? { ...p, hp: p.maxHp } : null);
+      setParty(prev => prev.map((p, i) => i === activePokemonIndex ? { ...p, hp: p.maxHp } : p));
+      addFloatingText('系统完全修复', '#4ade80', 'PLAYER');
+      setShowDiagnostic(false);
+    }
+  };
+
+  const useConsumable = (consumable: Consumable, index: number) => {
+    if (phase !== 'BATTLE' && phase !== 'MAP' && phase !== 'HUB') return;
+    
+    setInventory(prev => prev.filter((_, i) => i !== index));
+    
+    switch (consumable.type) {
+      case 'HEAL':
+        setPlayer(p => {
+          if (!p) return null;
+          const healAmount = consumable.value === 999 ? p.maxHp - p.hp : Math.min(p.maxHp - p.hp, consumable.value);
+          addFloatingText(`+${healAmount} 修复`, '#4ade80', 'PLAYER');
+          return { ...p, hp: p.hp + healAmount };
+        });
+        break;
+      case 'ENERGY':
+        setPlayer(p => p ? { ...p, energy: Math.min(p.maxEnergy, p.energy + consumable.value) } : null);
+        addFloatingText(`+${consumable.value} 核心`, '#06b6d4', 'PLAYER');
+        break;
+      case 'DRAW':
+        if (phase === 'BATTLE') {
+          drawCards(consumable.value);
+          addFloatingText(`+${consumable.value} 协议`, '#3b82f6', 'PLAYER');
+        }
+        break;
+      case 'STATUS':
+        if (consumable.id === 'full_heal') {
+          setPlayer(p => p ? { ...p, statusEffects: [] } : null);
+          addFloatingText('系统清理', '#ffffff', 'PLAYER');
+        } else if (consumable.id === 'x_attack' || (consumable.statusType === 'STRENGTH')) {
+          setPlayer(p => p ? { ...p, statusEffects: [...p.statusEffects, { type: 'STRENGTH', value: consumable.value }] } : null);
+          addFloatingText(`+${consumable.value} 力量`, '#f97316', 'PLAYER');
+        } else if (consumable.id === 'x_defense' || (consumable.statusType === 'DEXTERITY')) {
+          setPlayer(p => p ? { ...p, statusEffects: [...p.statusEffects, { type: 'DEXTERITY', value: consumable.value }] } : null);
+          addFloatingText(`+${consumable.value} 敏捷`, '#3b82f6', 'PLAYER');
+        } else if (consumable.id === 'x_accuracy' || (consumable.statusType === 'CHARGE')) {
+          setPlayer(p => p ? { ...p, statusEffects: [...p.statusEffects, { type: 'CHARGE', value: consumable.value }] } : null);
+          addFloatingText(`+${consumable.value} 电荷`, '#facc15', 'PLAYER');
+        } else if (consumable.id === 'guard_spec') {
+          setPlayer(p => p ? { ...p, shield: p.shield + consumable.value } : null);
+          addFloatingText(`+${consumable.value} 屏障`, '#94a3b8', 'PLAYER');
+        } else if (consumable.id === 'rare_candy') {
+          setPlayer(p => p ? { ...p, maxHp: p.maxHp + 20, hp: p.hp + 20 } : null);
+          setParty(prev => prev.map((p, i) => i === activePokemonIndex ? { ...p, maxHp: p.maxHp + 20, hp: p.hp + 20 } : p));
+          addFloatingText('等级提升 (LVL UP)', '#facc15', 'PLAYER');
+        } else if (consumable.id === 'protein') {
+          setPlayer(p => p ? { ...p, maxHp: p.maxHp + 2, hp: p.hp + 2 } : null);
+          setParty(prev => prev.map((p, i) => i === activePokemonIndex ? { ...p, maxHp: p.maxHp + 2, hp: p.hp + 2 } : p));
+          addFloatingText('永久强化 (MAX HP+2)', '#4ade80', 'PLAYER');
+        } else if (['poke_ball', 'great_ball', 'ultra_ball', 'master_ball'].includes(consumable.id)) {
+          if (phase === 'BATTLE' && enemy) {
+            let bonus = 0;
+            if (consumable.id === 'great_ball') bonus = 10;
+            if (consumable.id === 'ultra_ball') bonus = 25;
+            const captureChance = consumable.id === 'master_ball' ? 100 : ((1 - (enemy.hp / enemy.maxHp)) * 100) + bonus;
+            const roll = Math.random() * 100;
+            if (roll < captureChance && !enemy.isBoss) {
+              addFloatingText('捕获成功! (CAPTURED)', '#4ade80', 'ENEMY');
+              const newPokemon: EntityState = {
+                ...enemy,
+                hp: Math.floor(enemy.maxHp * 0.5),
+                maxHp: enemy.maxHp,
+                shield: 0,
+                energy: 3,
+                maxEnergy: 3,
+                statusEffects: [],
+                level: 1,
+                xp: 0,
+                nextXp: 100,
+              };
+              setParty(prev => [...prev, newPokemon]);
+              const starterCards = INITIAL_DECKS[enemy.id] || [];
+              const newCards = starterCards.map(c => ({ ...c, uid: generateUUID(), isEquipped: true } as Card));
+              setPermanentDeck(prev => [...prev, ...newCards]);
+              setEnemy(e => e ? { ...e, hp: 0 } : null);
+            } else {
+              addFloatingText('捕获失败 (FAILED)', '#ef4444', 'ENEMY');
+            }
+          }
+        } else if (consumable.id === 'revive' || consumable.id === 'max_revive') {
+          const healPercent = consumable.id === 'max_revive' ? 1 : 0.5;
+          setParty(prev => prev.map(p => p.hp <= 0 ? { ...p, hp: Math.floor(p.maxHp * healPercent) } : p));
+          addFloatingText('系统重启 (REVIVED)', '#facc15', 'PLAYER');
+        } else if (consumable.id === 'dire_hit') {
+          setPlayer(p => p ? { ...p, statusEffects: [...p.statusEffects, { type: 'STRENGTH', value: 5 }] } : null);
+          addFloatingText('暴击指令 (CRIT)', '#ef4444', 'PLAYER');
+        } else if (consumable.id === 'iron') {
+          setPlayer(p => p ? { ...p, shield: p.shield + 20 } : null);
+          addFloatingText('物理加固 (IRON)', '#94a3b8', 'PLAYER');
+        }
+        break;
+    }
+  };
+
+  const switchPokemon = (index: number) => {
+    if (index === activePokemonIndex || !party[index]) return;
+    if (turn !== 'PLAYER' || isAnimating) return;
+    if (player!.energy < 1) {
+      addFloatingText('算力核心不足', '#ef4444', 'PLAYER');
+      return;
+    }
+
+    // Save current state to party
+    const updatedParty = [...party];
+    updatedParty[activePokemonIndex] = { ...player! };
+    
+    // Switch to new pokemon
+    const nextPokemon = updatedParty[index];
+    setPlayer({ ...nextPokemon, energy: player!.energy - 1 }); // Switching costs 1 energy
+    setParty(updatedParty);
+    setActivePokemonIndex(index);
+    addFloatingText(`切换至 ${nextPokemon.name}`, nextPokemon.color, 'PLAYER');
+    showDialogue('PLAYER', 'START');
+    setShowPartySwitch(false);
+  };
+  const [enemyAnimation, setEnemyAnimation] = useState<'idle' | 'attack' | 'hit' | 'skill'>('idle');
+  const [playerAnimation, setPlayerAnimation] = useState<'idle' | 'attack' | 'hit' | 'skill'>('idle');
+  const [playerDialogue, setPlayerDialogue] = useState<string | null>(null);
+  const [enemyDialogue, setEnemyDialogue] = useState<string | null>(null);
+
+  // --- Dialogue Sets ---
+  const PLAYER_DIALOGUES = {
+    ATTACK: ["接招吧！", "看我的厉害！", "数据重构！", "全功率输出！"],
+    SKILL: ["协议加载，启动！", "系统超频，准备反击！", "正在分析你的漏洞..."],
+    HIT: ["啧，大意了...", "防御系统报警！", "还没完呢！"],
+    WIN: ["战斗结束，系统清理完毕。", "这就是我的实力！", "任务达成，返回。"],
+    START: ["检测到敌对程序，开始清除。", "系统已就绪，准备战斗。", "防火墙已开启，来吧！"],
+  };
+
+  const ENEMY_DIALOGUES = {
+    ATTACK: ["消失吧，入侵者！", "锁定目标，执行清除。", "你的数据到此为止了。"],
+    SKILL: ["正在扫描你的弱点...", "防火墙强化中。", "逻辑陷阱已布下。"],
+    HIT: ["核心受损... 正在重启...", "检测到高能攻击！", "这不可能..."],
+    WIN: ["目标已清除，系统恢复平静。", "弱小的程序。", "清除完毕。"],
+    START: ["发现非法访问，立即拦截！", "警告：检测到未授权操作。", "正在初始化清除程序..."],
+  };
+
+  const showDialogue = (target: 'PLAYER' | 'ENEMY', type: 'ATTACK' | 'SKILL' | 'HIT' | 'WIN' | 'START') => {
+    const setDialogue = target === 'PLAYER' ? setPlayerDialogue : setEnemyDialogue;
+    const dialogues = target === 'PLAYER' ? PLAYER_DIALOGUES[type] : ENEMY_DIALOGUES[type];
+    const text = dialogues[Math.floor(Math.random() * dialogues.length)];
+    setDialogue(text);
+    setTimeout(() => setDialogue(null), 2500);
+  };
+
+  // --- Deck & Piles ---
+  const [piles, setPiles] = useState<CombatPiles>({ hand: [], deck: [], discard: [] });
+
+  const hand = piles.hand;
+  const deck = piles.deck;
+  const discard = piles.discard;
+
+  const setHand = (newHand: Card[] | ((prev: Card[]) => Card[])) => {
+    setPiles(prev => ({ ...prev, hand: typeof newHand === 'function' ? newHand(prev.hand) : newHand }));
+  };
+  const setDeck = (newDeck: Card[] | ((prev: Card[]) => Card[])) => {
+    setPiles(prev => ({ ...prev, deck: typeof newDeck === 'function' ? newDeck(prev.deck) : newDeck }));
+  };
+  const setDiscard = (newDiscard: Card[] | ((prev: Card[]) => Card[])) => {
+    setPiles(prev => ({ ...prev, discard: typeof newDiscard === 'function' ? newDiscard(prev.discard) : newDiscard }));
+  };
 
   // --- Entities ---
   const [player, setPlayer] = useState<EntityState | null>(null);
@@ -117,15 +840,16 @@ export default function App() {
   // --- Refs for latest state (to avoid stale closures in async functions) ---
   const playerRef = useRef<EntityState | null>(null);
   const enemyRef = useRef<EntityState | null>(null);
+  const handRef = useRef<Card[]>([]);
+  const deckRef = useRef<Card[]>([]);
+  const discardRef = useRef<Card[]>([]);
 
   // --- Sync refs with state ---
   useEffect(() => { playerRef.current = player; }, [player]);
   useEffect(() => { enemyRef.current = enemy; }, [enemy]);
-
-  // --- Deck ---
-  const [deck, setDeck] = useState<Card[]>([]);
-  const [hand, setHand] = useState<Card[]>([]);
-  const [discard, setDiscard] = useState<Card[]>([]);
+  useEffect(() => { handRef.current = hand; }, [hand]);
+  useEffect(() => { deckRef.current = deck; }, [deck]);
+  useEffect(() => { discardRef.current = discard; }, [discard]);
 
   // --- Powers (Permanent Buffs) ---
   const [playerPowers, setPlayerPowers] = useState<string[]>([]);
@@ -153,86 +877,187 @@ export default function App() {
 
   const generateMap = (floors: number) => {
     const newMap: MapNode[] = [];
+    const nodesPerFloor = 4;
+    
     for (let f = 1; f <= floors; f++) {
-      const nodeCount = f === floors ? 1 : 2 + Math.floor(Math.random() * 2);
-      for (let i = 0; i < nodeCount; i++) {
+      const floorNodes: MapNode[] = [];
+      
+      for (let i = 0; i < nodesPerFloor; i++) {
         let type: NodeType = 'COMBAT';
         const roll = Math.random();
-        if (f === floors) type = 'BOSS';
-        else if (f === 1) type = 'COMBAT';
-        else if (roll < 0.15) type = 'ELITE';
-        else if (roll < 0.3) type = 'SHOP';
-        else if (roll < 0.45) type = 'REST';
-        else type = 'COMBAT';
+        
+        if (f === floors) {
+          type = 'BOSS';
+        } else if (i === 0 && f > 1) {
+          type = 'REST';
+        } else if (i === nodesPerFloor - 1 && f > 1) {
+          type = 'SHOP';
+        } else {
+          if (roll < 0.15) type = 'ELITE';
+          else if (roll < 0.3) type = 'SHOP';
+          else if (roll < 0.45) type = 'REST';
+          else if (roll < 0.6) type = 'UNKNOWN';
+          else type = 'COMBAT';
+        }
 
-        newMap.push({
+        const node: MapNode = {
           id: `node-${f}-${i}`,
           type,
           floor: f,
-          x: (i + 1) * (100 / (nodeCount + 1)),
+          x: (i + 1) * (100 / (nodesPerFloor + 1)),
           connectedTo: []
-        });
+        };
+        floorNodes.push(node);
+        newMap.push(node);
+      }
+
+      // Connect to next floor
+      if (f < floors) {
+        // We'll connect them after generating all nodes or just connect to all in next floor for now
       }
     }
-    // Connect nodes
+
+    // Connect nodes between floors
     for (let f = 1; f < floors; f++) {
       const currentFloorNodes = newMap.filter(n => n.floor === f);
       const nextFloorNodes = newMap.filter(n => n.floor === f + 1);
-      currentFloorNodes.forEach(n => {
-        // Each node connects to at least one node in next floor
-        const targetCount = 1 + Math.floor(Math.random() * 2);
-        const targets = shuffle(nextFloorNodes).slice(0, targetCount);
-        targets.forEach(t => n.connectedTo.push(t.id));
+      
+      currentFloorNodes.forEach(node => {
+        // Each node connects to 1-2 random nodes in the next floor
+        const targets = shuffle(nextFloorNodes).slice(0, Math.random() > 0.7 ? 2 : 1);
+        node.connectedTo = targets.map(t => t.id);
       });
     }
+
     return newMap;
   };
 
   const initGame = (selectedId: string) => {
     const pBase = POKEMON_DB.find(p => p.id === selectedId)!;
-    const initialDeck = INITIAL_DECKS[selectedId].map(c => ({ ...c, uid: generateUUID() } as Card));
+    const initialDeck = INITIAL_DECKS[selectedId].map(c => ({ ...c, uid: generateUUID(), isEquipped: true } as Card));
     
-    setPlayer({
+    const initialPokemon: EntityState = {
       ...pBase,
       hp: pBase.maxHp,
       maxHp: pBase.maxHp,
       shield: 0,
       energy: pBase.maxEnergy,
+      maxEnergy: pBase.maxEnergy,
       statusEffects: [],
-    });
+      level: pBase.level || 1,
+      xp: pBase.xp || 0,
+      nextXp: pBase.nextXp || 100,
+    };
     
-    setDeck(shuffle(initialDeck));
-    setHand([]);
-    setDiscard([]);
+    setParty([initialPokemon]);
+    setActivePokemonIndex(0);
+    setPlayer(initialPokemon);
+    setPermanentDeck(initialDeck);
     setRelics([]);
-    setGold(50);
-    setFloor(1);
-    setMap(generateMap(5));
-    setCurrentNodeId(null);
-    setPhase('MAP');
+    setInventory([
+      CONSUMABLES_DB.find(c => c.id === 'potion')!,
+      CONSUMABLES_DB.find(c => c.id === 'poke_ball')!
+    ]);
+    setPhase('HUB');
+  };
+
+  const startEndlessTower = () => {
+    // Initialize player lineup from current party
+    const playerLineup = party.map(p => ({ ...p, hp: p.maxHp, shield: 0, statusEffects: [] }));
+    
+    // Generate initial enemy lineup
+    const enemyLineup = generateEnemyLineup(3); // Start with 3 enemies
+    
+    setEndlessLineup({
+      player: playerLineup,
+      enemy: enemyLineup,
+      playerIdx: 0,
+      enemyIdx: 0,
+      wave: 1
+    });
+
+    // Set active combatants
+    setPlayer(playerLineup[0]);
+    setEnemy(enemyLineup[0]);
+    setActivePokemonIndex(0);
+
+    // Prepare deck
+    const fullDeck = shuffle(permanentDeck.filter(c => c.isEquipped !== false)) as Card[];
+    setPiles({
+      deck: fullDeck.filter(c => !c.isInnate),
+      hand: fullDeck.filter(c => c.isInnate).slice(0, 5),
+      discard: []
+    });
+
+    setPlayerPowers([]);
+    setEnemyPowers([]);
+    setTurn('PLAYER');
+    setPhase('ENDLESS');
+    addFloatingText('无尽塔链接成功', '#06b6d4', 'PLAYER');
+  };
+
+  const generateEnemyLineup = (count: number) => {
+    const lineup: EntityState[] = [];
+    for (let i = 0; i < count; i++) {
+      const eBase = ENEMIES_DB[Math.floor(Math.random() * ENEMIES_DB.length)];
+      lineup.push({
+        ...eBase,
+        maxHp: eBase.maxHp + (endlessLineup.wave * 10),
+        hp: eBase.maxHp + (endlessLineup.wave * 10),
+        shield: 0,
+        energy: 3,
+        statusEffects: [],
+        intent: generateEnemyIntent(eBase as any),
+        bgGradient: 'from-red-900/40 to-black',
+        neonClass: 'neon-red',
+        color: '#ef4444'
+      } as any);
+    }
+    return lineup;
   };
 
   const startBattle = (node: MapNode) => {
     setCurrentNodeId(node.id);
-    const enemies = node.type === 'BOSS' ? [POKEMON_DB.find(p => p.id === 'mewtwo')!] : ENEMIES_DB;
-    const eBase = enemies[Math.floor(Math.random() * enemies.length)];
-    
-    const hpMultiplier = node.type === 'BOSS' ? 3 : (node.type === 'ELITE' ? 1.8 : 1);
+
+    if (node.type === 'BOSS') {
+      setPlayer(p => p ? { ...p, hp: p.maxHp } : null);
+      addFloatingText('系统全量恢复 (FULL RESTORE)', '#4ade80', 'PLAYER');
+    }
+
+    let enemyPool = ENEMIES_DB.filter(e => !e.isElite && !e.isBoss);
+    if (node.type === 'ELITE') {
+      enemyPool = ENEMIES_DB.filter(e => e.isElite);
+    } else if (node.type === 'BOSS') {
+      if (floor === 5) {
+        enemyPool = ENEMIES_DB.filter(e => e.id === 'rayquaza');
+      } else {
+        // Pick a boss that isn't the final one
+        enemyPool = ENEMIES_DB.filter(e => e.isBoss && e.id !== 'rayquaza');
+      }
+    }
+
+    // Floor 5 All-Star logic: pull from any enemy for non-boss nodes
+    if (floor === 5 && node.type !== 'BOSS') {
+      enemyPool = ENEMIES_DB.filter(e => !e.isBoss);
+    }
+
+    const eBase = enemyPool[Math.floor(Math.random() * enemyPool.length)];
+    const hpMultiplier = node.type === 'BOSS' ? 2.5 : (node.type === 'ELITE' ? 1.8 : 1);
 
     setEnemy({
       ...eBase,
-      maxHp: Math.floor((eBase.maxHp + (floor * 15)) * hpMultiplier),
-      hp: Math.floor((eBase.maxHp + (floor * 15)) * hpMultiplier),
+      maxHp: Math.floor((eBase.maxHp + (floor * 20)) * hpMultiplier),
+      hp: Math.floor((eBase.maxHp + (floor * 20)) * hpMultiplier),
       shield: 0,
       energy: 3,
       statusEffects: [],
       intent: generateEnemyIntent(eBase as any),
-      bgGradient: node.type === 'BOSS' ? 'from-purple-900/60 to-black' : 'from-red-900/40 to-black',
-      neonClass: node.type === 'BOSS' ? 'neon-purple' : 'neon-red',
-      color: node.type === 'BOSS' ? '#c084fc' : '#ef4444'
+      bgGradient: node.type === 'BOSS' ? 'from-purple-900/60 to-black' : (node.type === 'ELITE' ? 'from-orange-900/40 to-black' : 'from-red-900/40 to-black'),
+      neonClass: node.type === 'BOSS' ? 'neon-purple' : (node.type === 'ELITE' ? 'neon-orange' : 'neon-red'),
+      color: node.type === 'BOSS' ? '#c084fc' : (node.type === 'ELITE' ? '#f97316' : '#ef4444')
     } as any);
 
-    const fullDeck = shuffle([...deck, ...hand, ...discard]);
+    const fullDeck = shuffle(permanentDeck.filter(c => c.isEquipped !== false)) as Card[];
     const innateCards = fullDeck.filter(c => c.isInnate);
     const otherCards = fullDeck.filter(c => !c.isInnate);
     const startingHand = [...innateCards];
@@ -241,13 +1066,21 @@ export default function App() {
       startingHand.push(remainingDeck.pop()!);
     }
 
-    setDeck(remainingDeck);
-    setHand(startingHand);
-    setDiscard([]);
+    setPiles({
+      deck: remainingDeck,
+      hand: startingHand,
+      discard: []
+    });
     setPlayerPowers([]);
     setEnemyPowers([]);
     setTurn('PLAYER');
     setPhase('BATTLE');
+    
+    // Opening Dialogues
+    setTimeout(() => {
+      showDialogue('PLAYER', 'START');
+      setTimeout(() => showDialogue('ENEMY', 'START'), 1000);
+    }, 500);
 
     if (relics.find(r => r.id === 'usb')) {
       setTimeout(() => drawCards(2), 500);
@@ -263,8 +1096,19 @@ export default function App() {
       startBattle(node);
     } else if (node.type === 'SHOP') {
       const pool = INITIAL_DECKS[player!.id];
-      const cards = shuffle(pool).slice(0, 3).map(c => ({ ...c, uid: generateUUID(), price: 50 + Math.floor(Math.random() * 50) }));
+      const cards = shuffle(pool).slice(0, 3).map(c => {
+        const basePrice = c.rarity === 'RARE' ? 90 : (c.rarity === 'UNCOMMON' ? 65 : 45);
+        return { 
+          ...c, 
+          uid: generateUUID(), 
+          price: basePrice + Math.floor(Math.random() * 20) 
+        };
+      });
+      const relicsPool = shuffle(RELICS_DB).filter(r => !relics.find(pr => pr.id === r.id)).slice(0, 2);
+      const consumablesPool = shuffle(CONSUMABLES_DB).slice(0, 3);
       setShopCards(cards as any);
+      setShopRelics(relicsPool);
+      setShopConsumables(consumablesPool);
       setPhase('SHOP');
     } else if (node.type === 'REST') {
       setPhase('REST');
@@ -277,9 +1121,9 @@ export default function App() {
     const isElite = currentNode?.type === 'ELITE';
     const isBoss = currentNode?.type === 'BOSS';
     
-    let baseDmg = 8 + floor * 2;
+    let baseDmg = 6 + floor * 2;
     if (isElite) baseDmg += 5;
-    if (isBoss) baseDmg += 10;
+    if (isBoss) baseDmg += 6;
 
     // Enemy-specific logic
     if (enemyObj.id === 'caterpie') {
@@ -319,41 +1163,92 @@ export default function App() {
   };
 
   const handleWin = () => {
+    showDialogue('PLAYER', 'WIN');
     const currentNode = map.find(n => n.id === currentNodeId);
+    
+    // XP reward
+    const baseXp = 20 + Math.floor(Math.random() * 10) + (floor * 5);
+    const xpMultiplier = currentNode?.type === 'BOSS' ? 5 : (currentNode?.type === 'ELITE' ? 2.5 : 1);
+    const finalXp = Math.min(500, Math.floor(baseXp * xpMultiplier)); // Cap XP to 500
+    gainXp(finalXp);
+    addFloatingText(`+${finalXp} 经验`, '#34d399', 'PLAYER');
+
+    // Gacha Ticket reward
+    setGachaTickets(prev => prev + 1);
+    addFloatingText('+1 抽奖机会', '#f472b6', 'PLAYER');
+
+    // Post-battle healing: 15% of Max HP
+    setPlayer(p => {
+      if (!p) return null;
+      const healAmount = Math.floor(p.maxHp * 0.15);
+      const newHp = Math.min(p.maxHp, p.hp + healAmount);
+      addFloatingText(`+${healAmount} 修复`, '#4ade80', 'PLAYER');
+      return { ...p, hp: newHp };
+    });
+
+    // Gold reward based on node type and floor
+    const baseGold = 25 + Math.floor(Math.random() * 15) + (floor * 2);
+    const multiplier = currentNode?.type === 'BOSS' ? 4 : (currentNode?.type === 'ELITE' ? 2 : 1);
+    const finalGold = Math.min(300, Math.floor(baseGold * multiplier)); // Cap Gold to 300
+    
+    setGold(prev => prev + finalGold);
+    addFloatingText(`+${finalGold} 金币`, '#facc15', 'PLAYER');
+    updateTaskProgress('BATTLE_WIN', 1);
+
     if (currentNode?.type === 'BOSS') {
-      setPhase('VICTORY');
+      if (floor === 5) {
+        setPhase('VICTORY');
+      } else {
+        setFloor(prev => prev + 1);
+        addFloatingText(`Sector ${floor + 1} 渗透中`, '#06b6d4', 'PLAYER');
+        // Bonus reward for boss
+        const bonusConsumable = CONSUMABLES_DB[Math.floor(Math.random() * CONSUMABLES_DB.length)];
+        setInventory(prev => [...prev, bonusConsumable]);
+        addFloatingText(`获得: ${bonusConsumable.name}`, '#4ade80', 'PLAYER');
+        
+        setPhase('HUB'); // Return to HUB after boss to prepare for next floor
+      }
     } else {
+      // Generate rewards here
+      const allCards = Object.values(INITIAL_DECKS).flat();
+      const newRewards = shuffle(allCards).slice(0, 3).map(c => ({ ...c, uid: generateUUID() } as Card));
+      setRewards(newRewards);
       setPhase('REWARD');
-      setGold(prev => prev + 25 + Math.floor(Math.random() * 20));
     }
   };
 
-  const drawCards = (count: number) => {
-    setHand(prevHand => {
-      let currentHand = [...prevHand];
-      let currentDeck = [...deck];
-      let currentDiscard = [...discard];
+  const drawCardsFromPiles = (count: number, currentHand: Card[], currentDeck: Card[], currentDiscard: Card[]) => {
+    const newHand = [...currentHand];
+    let newDeck = [...currentDeck];
+    let newDiscard = [...currentDiscard];
+    let shuffles = 0;
 
-      for (let i = 0; i < count; i++) {
-        if (currentHand.length >= 10) break;
-        if (currentDeck.length === 0) {
-          if (currentDiscard.length === 0) break;
-          currentDeck = shuffle([...currentDiscard]);
-          currentDiscard = [];
-          // Relic: Liquid Cooling System
-          if (relics.find(r => r.id === 'cooling')) {
-            setPlayer(p => p ? { ...p, hp: Math.min(p.maxHp, p.hp + 5) } : null);
-            addFloatingText('+5 修复', '#4ade80', 'PLAYER');
-          }
-        }
-        const card = currentDeck.pop();
-        if (card) currentHand.push(card);
+    for (let i = 0; i < count; i++) {
+      if (newHand.length >= 10) break;
+      if (newDeck.length === 0) {
+        if (newDiscard.length === 0) break;
+        newDeck = shuffle([...newDiscard]);
+        newDiscard = [];
+        shuffles++;
       }
+      const card = newDeck.pop();
+      if (card) newHand.push(card);
+    }
 
-      setDeck(currentDeck);
-      setDiscard(currentDiscard);
-      return currentHand;
-    });
+    return { hand: newHand, deck: newDeck, discard: newDiscard, shuffles };
+  };
+
+  const drawCards = (count: number) => {
+    const result = drawCardsFromPiles(count, handRef.current, deckRef.current, discardRef.current);
+    setPiles({ hand: result.hand, deck: result.deck, discard: result.discard });
+
+    // Handle side effects
+    if (result.shuffles > 0 && relics.find(r => r.id === 'cooling')) {
+      for (let i = 0; i < result.shuffles; i++) {
+        setPlayer(p => p ? { ...p, hp: Math.min(p.maxHp, p.hp + 5) } : null);
+        addFloatingText('+5 修复', '#4ade80', 'PLAYER');
+      }
+    }
   };
 
   const applyStatus = (target: 'PLAYER' | 'ENEMY', type: StatusType, value: number) => {
@@ -400,8 +1295,11 @@ export default function App() {
     if (!currentPlayer || !currentEnemy || isAnimating || currentPlayer.energy < card.cost || card.type === 'CURSE') return;
 
     setIsAnimating(true);
+    setPlayerAnimation(card.type === 'ATTACK' ? 'attack' : 'skill');
+    showDialogue('PLAYER', card.type === 'ATTACK' ? 'ATTACK' : 'SKILL');
+    
     setPlayer(prev => prev ? { ...prev, energy: prev.energy - card.cost } : null);
-    setHand(prev => prev.filter(c => c.uid !== card.uid));
+    setPiles(prev => ({ ...prev, hand: prev.hand.filter(c => c.uid !== card.uid) }));
 
     // VFX & Hit-stop
     setActiveVfx({ type: card.vfx || 'physical', target: 'ENEMY' });
@@ -435,6 +1333,9 @@ export default function App() {
         return { ...prev, shield: s, hp: Math.max(0, prev.hp - d) };
       });
       addFloatingText(`-${total}`, '#ef4444', 'ENEMY');
+      setEnemyAnimation('hit');
+      showDialogue('ENEMY', 'HIT');
+      setTimeout(() => setEnemyAnimation('idle'), 500);
       
       // Clear Charge if used
       const charge = attacker.statusEffects.find(s => s.type === 'CHARGE');
@@ -473,6 +1374,12 @@ export default function App() {
 
     if (card.draw) drawCards(card.draw);
 
+    setTimeout(() => setPlayerAnimation('idle'), 500);
+
+    if (card.id === 'junk') {
+      addFloatingText('数据清理中...', '#4ade80', 'PLAYER');
+    }
+
     // Charizard Overload Mechanic
     const overload = playerRef.current?.statusEffects.find(s => s.type === 'OVERLOAD');
     if (overload) {
@@ -491,16 +1398,24 @@ export default function App() {
     setTurn('ENEMY');
     
     // Junk Card Damage
-    const junkCount = hand.filter(c => c.id === 'junk').length;
+    const junkCount = handRef.current.filter(c => c.id === 'junk').length;
     if (junkCount > 0) {
       setPlayer(p => p ? { ...p, hp: Math.max(1, p.hp - (junkCount * 2)) } : null);
       addFloatingText(`-${junkCount * 2} 垃圾数据`, '#ef4444', 'PLAYER');
     }
 
+    // Clear hand immediately and move to discard
+    setPiles(prev => ({
+      ...prev,
+      hand: [],
+      discard: [...prev.discard, ...prev.hand]
+    }));
+
     // Tyranitar Power: Shield Retention
-    if (!playerPowers.includes('硬化协议')) {
-      setPlayer(prev => prev ? { ...prev, shield: 0 } : null);
-    }
+    // REMOVED: Shield reset at end of player turn to fix "useless defense" bug
+    // if (!playerPowers.includes('硬化协议')) {
+    //   setPlayer(prev => prev ? { ...prev, shield: 0 } : null);
+    // }
 
     // Turn-end Powers/Effects
     setTimeout(async () => {
@@ -531,6 +1446,9 @@ export default function App() {
       }
 
       const intent = currentEnemy.intent!;
+      setEnemyAnimation(intent.type === 'ATTACK' ? 'attack' : 'skill');
+      showDialogue('ENEMY', intent.type === 'ATTACK' ? 'ATTACK' : 'SKILL');
+      
       setActiveVfx({ type: 'physical', target: 'PLAYER' });
       
       if (intent.type === 'ATTACK') {
@@ -543,6 +1461,9 @@ export default function App() {
           return { ...prev, shield: s, hp: Math.max(0, prev.hp - d) };
         });
         addFloatingText(`-${dmg}`, '#ef4444', 'PLAYER');
+        setPlayerAnimation('hit');
+        showDialogue('PLAYER', 'HIT');
+        setTimeout(() => setPlayerAnimation('idle'), 500);
         triggerShake(10);
       } else if (intent.type === 'DEFEND') {
         setEnemy(prev => prev ? { ...prev, shield: prev.shield + intent.value! } : null);
@@ -560,6 +1481,7 @@ export default function App() {
       }
 
       await new Promise(r => setTimeout(r, 800));
+      setEnemyAnimation('idle');
       setActiveVfx(null);
 
       // End Enemy Turn
@@ -598,17 +1520,27 @@ export default function App() {
         }
 
         const energyGain = relics.find(r => r.id === 'battery') ? 1 : 0;
+        
+        // SHIELD RESET AT START OF PLAYER TURN
+        let newShield = 0;
+        if (playerPowers.includes('硬化协议')) {
+           newShield = prev.shield;
+        }
+
         return { 
           ...prev, 
           hp: newHp,
+          shield: newShield,
           energy: Math.min(prev.maxEnergy + energyGain, prev.maxEnergy + 1), 
           statusEffects: decrementStatus(prev.statusEffects) 
         };
       });
 
-      setDiscard(prev => [...prev, ...hand]);
-      setHand([]);
-      drawCards(5);
+      // CRITICAL FIX: Use unified setPiles for atomic updates
+      setPiles(prev => {
+        const result = drawCardsFromPiles(5, [], prev.deck, prev.discard);
+        return result;
+      });
     }, 1000);
   };
 
@@ -616,14 +1548,127 @@ export default function App() {
   useEffect(() => {
     if (phase === 'BATTLE') {
       if (player && player.hp <= 0) {
+        showDialogue('ENEMY', 'WIN');
         setPhase('GAMEOVER');
         setWinner('ENEMY');
       } else if (enemy && enemy.hp <= 0) {
+        // Prevent double call
+        setPhase('REWARD_TRANSITION'); 
         handleWin();
       }
+    } else if (phase === 'ENDLESS') {
+      if (player && player.hp <= 0) {
+        // Player Pokemon fainted
+        const nextIdx = endlessLineup.playerIdx + 1;
+        if (nextIdx < endlessLineup.player.length) {
+          addFloatingText(`${player.name} 离线`, '#ef4444', 'PLAYER');
+          const nextPokemon = endlessLineup.player[nextIdx];
+          setPlayer(nextPokemon);
+          setEndlessLineup(prev => ({ ...prev, playerIdx: nextIdx }));
+          setActivePokemonIndex(nextIdx);
+          addFloatingText(`切换至 ${nextPokemon.name}`, nextPokemon.color, 'PLAYER');
+        } else {
+          setPhase('GAMEOVER');
+          setWinner('ENEMY');
+        }
+      } else if (enemy && enemy.hp <= 0) {
+    // Enemy Pokemon fainted
+    const nextIdx = endlessLineup.enemyIdx + 1;
+    setGachaTickets(prev => prev + 1);
+    addFloatingText('+1 抽奖机会', '#f472b6', 'PLAYER');
+    
+    if (nextIdx < endlessLineup.enemy.length) {
+          addFloatingText(`${enemy.name} 已清除`, '#4ade80', 'ENEMY');
+          const nextEnemy = endlessLineup.enemy[nextIdx];
+          setEnemy(nextEnemy);
+          setEndlessLineup(prev => ({ ...prev, enemyIdx: nextIdx }));
+          addFloatingText(`下一个病毒: ${nextEnemy.name}`, '#ef4444', 'ENEMY');
+        } else {
+    // Wave cleared
+    const nextWave = endlessLineup.wave + 1;
+    addFloatingText(`WAVE ${endlessLineup.wave} 清除`, '#facc15', 'PLAYER');
+    const waveGold = Math.min(500, 100 * endlessLineup.wave);
+    setGold(prev => prev + waveGold);
+    setGachaTickets(prev => prev + 3); // Bonus tickets for wave clear
+    addFloatingText('+3 抽奖机会', '#f472b6', 'PLAYER');
+    
+    const newEnemyLineup = generateEnemyLineup(3 + Math.floor(nextWave / 2));
+          setEndlessLineup(prev => ({
+            ...prev,
+            enemy: newEnemyLineup,
+            enemyIdx: 0,
+            wave: nextWave
+          }));
+          setEnemy(newEnemyLineup[0]);
+          addFloatingText(`WAVE ${nextWave} 开始`, '#ef4444', 'ENEMY');
+        }
+      }
     }
-  }, [player?.hp, enemy?.hp, phase]);
+  }, [player?.hp, enemy?.hp, phase, endlessLineup]);
 
+  const renderEndless = () => (
+    <div className="h-full w-full bg-[#05050a] flex flex-col overflow-hidden relative">
+      {/* Background VFX */}
+      <div className="absolute inset-0 opacity-20 pointer-events-none">
+        <div className="w-full h-full bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%]" />
+      </div>
+
+      {/* Header */}
+      <div className="p-4 bg-black/60 border-b border-white/10 flex justify-between items-center z-20">
+        <div className="flex items-center gap-6">
+          <div className="text-2xl font-black italic text-red-500 glitch-text">无尽塔 // WAVE {endlessLineup.wave}</div>
+          <div className="text-xs font-mono text-yellow-400">CREDITS: {gold}</div>
+        </div>
+        <button 
+          onClick={() => setPhase('HUB')}
+          className="px-6 py-2 border-2 border-red-500 text-red-500 font-black uppercase tracking-widest hover:bg-red-500 hover:text-black transition-all"
+        >
+          终止链接 (EXIT)
+        </button>
+      </div>
+
+      {/* Main Battle Area */}
+      <div className="flex-1 flex flex-col relative">
+        {/* Enemy Lineup */}
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+          {endlessLineup.enemy.map((e, i) => (
+            <div 
+              key={i} 
+              className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center transition-all ${i === endlessLineup.enemyIdx ? 'border-red-500 bg-red-500/20 scale-110' : i < endlessLineup.enemyIdx ? 'border-white/5 opacity-20' : 'border-white/20 opacity-60'}`}
+            >
+              <img src={e.img} className="w-8 h-8 object-contain" />
+            </div>
+          ))}
+        </div>
+
+        {/* Player Lineup */}
+        <div className="absolute bottom-32 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+          {endlessLineup.player.map((p, i) => (
+            <div 
+              key={i} 
+              onClick={() => {
+                if (i !== endlessLineup.playerIdx && p.hp > 0 && turn === 'PLAYER' && !isAnimating) {
+                  setPlayer(p);
+                  setEndlessLineup(prev => ({ ...prev, playerIdx: i }));
+                  setActivePokemonIndex(i);
+                  addFloatingText(`切换至 ${p.name}`, p.color, 'PLAYER');
+                }
+              }}
+              className={`w-12 h-12 rounded-xl border-2 flex items-center justify-center cursor-pointer transition-all ${i === endlessLineup.playerIdx ? 'border-cyan-400 bg-cyan-400/20 scale-110 shadow-[0_0_15px_rgba(34,211,238,0.5)]' : p.hp <= 0 ? 'border-red-900 bg-red-900/20 opacity-30 grayscale' : 'border-white/20 opacity-60 hover:opacity-100'}`}
+            >
+              <img src={p.img} className="w-10 h-10 object-contain" />
+              {p.hp <= 0 && <Skull className="absolute w-6 h-6 text-red-600" />}
+            </div>
+          ))}
+        </div>
+
+        {/* The Battle View (Reusing components if possible or just inline) */}
+        <div className="flex-1 flex flex-col items-center justify-center">
+          {renderBattle()}
+        </div>
+      </div>
+    </div>
+  );
   const renderMap = () => (
     <div className="h-full w-full bg-[#05050a] p-8 text-white flex flex-col items-center justify-center overflow-y-auto no-scrollbar">
       <div className="mb-12 text-center">
@@ -688,49 +1733,790 @@ export default function App() {
     </div>
   );
 
-  const renderShop = () => (
-    <div className="h-full w-full bg-[#05050a] p-8 text-white flex flex-col items-center justify-center">
-      <div className="mb-12 text-center">
-        <h2 className="text-6xl font-black italic tracking-tighter text-yellow-400 mb-2 glitch-text">黑市终端 (BLACK MARKET)</h2>
-        <p className="font-mono text-xs opacity-60 uppercase tracking-[0.4em]">可用信用点: <span className="text-yellow-400">{gold}</span></p>
-      </div>
-
-      <div className="flex gap-8 mb-12">
-        {shopCards.map((card: any, i) => (
-          <div key={i} className="flex flex-col items-center gap-4">
-            {renderCard(card, i)}
-            <button 
-              onClick={() => {
-                if (gold >= card.price) {
-                  setGold(prev => prev - card.price);
-                  setDeck(prev => [...prev, { ...card, uid: generateUUID() }]);
-                  setShopCards(prev => prev.filter(c => c.uid !== card.uid));
-                }
-              }}
-              disabled={gold < card.price}
-              className={`px-6 py-2 border-2 font-black uppercase text-xs tracking-widest transition-all
-                ${gold >= card.price ? 'border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black' : 'border-white/10 text-white/20 cursor-not-allowed'}
-              `}
-            >
-              购买: {card.price}
-            </button>
+  const renderInventory = () => (
+    <div className="fixed top-4 right-4 flex gap-2 z-[60]">
+      {inventory.map((item, i) => (
+        <motion.div
+          key={i}
+          whileHover={{ scale: 1.1, y: -5 }}
+          onClick={() => useConsumable(item, i)}
+          className="w-12 h-12 bg-black/80 border border-white/20 rounded-xl flex items-center justify-center cursor-pointer group relative"
+        >
+          <Package className="w-6 h-6 text-cyan-400 group-hover:text-white transition-colors" />
+          <div className="absolute top-full right-0 mt-2 w-48 p-2 bg-black/90 border border-white/20 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-[70]">
+            <div className="text-xs font-black text-cyan-400 uppercase">{item.name}</div>
+            <div className="text-[10px] text-white/60 mt-1">{item.desc}</div>
+            <div className="text-[8px] text-yellow-400 mt-1 uppercase font-mono">点击使用</div>
           </div>
-        ))}
-      </div>
-
-      <button 
-        onClick={() => setPhase('MAP')}
-        className="px-12 py-4 border-2 border-white/20 text-sm font-black uppercase tracking-[0.3em] hover:bg-white/10 transition-all"
-      >
-        离开终端
-      </button>
+        </motion.div>
+      ))}
     </div>
   );
+
+  const renderTasks = () => (
+    <AnimatePresence>
+      {showTasks && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-8"
+        >
+          <motion.div
+            initial={{ scale: 0.9, y: 20 }}
+            animate={{ scale: 1, y: 0 }}
+            className="bg-[#0a0a15] border-2 border-cyan-500/30 rounded-3xl w-full max-w-2xl overflow-hidden shadow-[0_0_50px_rgba(0,255,255,0.1)]"
+          >
+            <div className="p-6 border-b border-white/10 flex justify-between items-center bg-cyan-950/20">
+              <h3 className="text-3xl font-black italic text-cyan-400 uppercase tracking-tighter">任务协议 (TASK PROTOCOLS)</h3>
+              <button onClick={() => setShowTasks(false)} className="text-white/40 hover:text-white transition-colors">
+                <Trash2 className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
+              {tasks.map((task) => (
+                <div key={task.id} className={`p-4 border rounded-2xl transition-all ${task.isClaimed ? 'bg-white/5 border-white/5 opacity-50' : 'bg-white/5 border-white/10 hover:border-cyan-500/50'}`}>
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <h4 className="font-black italic text-lg uppercase tracking-tight">{task.title}</h4>
+                      <p className="text-xs text-white/60 mt-1">{task.desc}</p>
+                    </div>
+                    <div className="flex items-center gap-2 text-yellow-400 font-black">
+                      <Coins className="w-4 h-4" />
+                      <span>{task.reward}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 mt-4">
+                    <div className="flex-1 h-2 bg-black/40 rounded-full overflow-hidden border border-white/5">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${(task.progress / task.target) * 100}%` }}
+                        className="h-full bg-cyan-500 shadow-[0_0_10px_#06b6d4]"
+                      />
+                    </div>
+                    <span className="text-[10px] font-mono text-white/40">{task.progress} / {task.target}</span>
+                    {task.progress >= task.target && !task.isClaimed ? (
+                      <button 
+                        onClick={() => claimTaskReward(task.id)}
+                        className="px-4 py-1 bg-yellow-400 text-black text-[10px] font-black uppercase rounded hover:bg-yellow-300 transition-all"
+                      >
+                        领取奖励
+                      </button>
+                    ) : task.isClaimed ? (
+                      <span className="text-[10px] text-green-400 font-black uppercase flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> 已完成
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-white/20 font-black uppercase">进行中</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
+  const renderPVPLobby = () => (
+    <div className="h-full w-full bg-black text-white flex flex-col items-center justify-center relative overflow-hidden">
+      <div className="absolute inset-0 opacity-20">
+        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,#ff0000_0%,transparent_70%)]" />
+      </div>
+      
+      <div className="relative z-10 text-center">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+          className="mb-8"
+        >
+          <Swords className="w-24 h-24 text-red-500" />
+        </motion.div>
+        
+        <h2 className="text-5xl font-black italic tracking-tighter text-red-500 mb-4">PVP 匹配中...</h2>
+        <p className="font-mono text-sm opacity-60 uppercase tracking-[0.3em]">正在寻找合适的对手 (SEARCHING FOR OPPONENT)</p>
+        
+        <div className="mt-12 flex flex-col items-center gap-6">
+          <div className="flex gap-2">
+            {[...Array(3)].map((_, i) => (
+              <motion.div
+                key={i}
+                animate={{ scale: [1, 1.5, 1], opacity: [0.3, 1, 0.3] }}
+                transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
+                className="w-3 h-3 bg-red-500 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.5)]"
+              />
+            ))}
+          </div>
+          
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={leavePVPLobby}
+            className="px-8 py-3 border-2 border-white/20 rounded-full font-black italic uppercase hover:bg-white/10 transition-colors"
+          >
+            取消匹配
+          </motion.button>
+
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={startAiBattle}
+            className="px-8 py-3 bg-red-500 text-white rounded-full font-black italic uppercase hover:bg-red-600 transition-colors shadow-[0_0_20px_rgba(239,68,68,0.3)]"
+          >
+            练习模式 (VS AI)
+          </motion.button>
+        </div>
+      </div>
+    </div>
+  );
+  const renderPVPBattle = () => {
+    if (!pvpState) return null;
+
+    return (
+      <div className="h-full w-full bg-[#05050a] p-8 text-white flex flex-col relative overflow-hidden">
+        {/* Opponent Section */}
+        <div className="flex-1 flex flex-col items-center justify-start pt-12">
+          <div className="relative">
+            <motion.div
+              animate={{
+                y: [0, -10, 0],
+                filter: ["hue-rotate(0deg)", "hue-rotate(10deg)", "hue-rotate(0deg)"]
+              }}
+              transition={{ duration: 4, repeat: Infinity }}
+              className={`w-64 h-64 rounded-full flex items-center justify-center relative z-20 ${pvpState.opponentPokemon.bgGradient} border-4 border-white/20 shadow-[0_0_50px_rgba(255,255,255,0.1)]`}
+            >
+              <img 
+                src={pvpState.opponentPokemon.img} 
+                alt={pvpState.opponentPokemon.name}
+                className="w-48 h-48 object-contain drop-shadow-[0_0_20px_rgba(255,255,255,0.5)]"
+                referrerPolicy="no-referrer"
+              />
+            </motion.div>
+            
+            {/* Opponent Info */}
+            <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 w-80 bg-black/80 backdrop-blur-md border border-white/20 p-4 rounded-2xl z-30">
+              <div className="flex justify-between items-end mb-2">
+                <span className="text-xl font-black italic text-red-400 uppercase tracking-tighter">{pvpState.opponentName}</span>
+                <span className="text-xs font-mono opacity-60">LV.{pvpState.opponentPokemon.level}</span>
+              </div>
+              
+              <div className="w-full h-3 bg-white/5 rounded-full overflow-hidden border border-white/10 mb-1">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(pvpState.opponentHp / pvpState.opponentMaxHp) * 100}%` }}
+                  className="h-full bg-gradient-to-r from-red-600 to-red-400"
+                />
+              </div>
+              <div className="flex justify-between text-[10px] font-mono font-bold">
+                <span className="text-red-400">HP {pvpState.opponentHp}/{pvpState.opponentMaxHp}</span>
+                {pvpState.opponentShield > 0 && <span className="text-blue-400">SHIELD {pvpState.opponentShield}</span>}
+              </div>
+            </div>
+          </div>
+          
+          {/* Opponent Hand Count */}
+          <div className="mt-20 flex gap-1">
+            {[...Array(pvpState.opponentHandCount)].map((_, i) => (
+              <div key={i} className="w-8 h-12 bg-red-950/40 border border-red-500/30 rounded-md transform -rotate-6" />
+            ))}
+          </div>
+        </div>
+
+        {/* VS Divider */}
+        <div className="h-px w-full bg-gradient-to-r from-transparent via-white/20 to-transparent my-8 relative">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black px-4 py-1 border border-white/20 rounded-full text-xs font-black italic uppercase text-white/40">
+            Turn {pvpState.turnNumber} - {pvpState.isMyTurn ? "你的回合" : "对手回合"}
+          </div>
+        </div>
+
+        {/* Player Section */}
+        <div className="flex-1 flex flex-col items-center justify-end pb-32">
+          <div className="relative">
+            <motion.div
+              animate={{
+                y: [0, -5, 0],
+              }}
+              transition={{ duration: 3, repeat: Infinity }}
+              className={`w-48 h-48 rounded-full flex items-center justify-center relative z-20 ${player.bgGradient} border-4 border-white/20 shadow-[0_0_30px_rgba(255,255,255,0.1)]`}
+            >
+              <img 
+                src={player.img} 
+                alt={player.name}
+                className="w-32 h-32 object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.4)]"
+                referrerPolicy="no-referrer"
+              />
+            </motion.div>
+
+            {/* Player Info */}
+            <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-64 bg-black/80 backdrop-blur-md border border-white/20 p-3 rounded-xl z-30">
+              <div className="flex justify-between items-end mb-1">
+                <span className="text-lg font-black italic text-cyan-400 uppercase tracking-tighter">{player.name}</span>
+                <div className="flex items-center gap-1 bg-cyan-500/20 px-2 py-0.5 rounded border border-cyan-500/30">
+                  <Zap className="w-3 h-3 text-cyan-400" />
+                  <span className="text-xs font-black text-cyan-400">{player.energy}/{player.maxEnergy}</span>
+                </div>
+              </div>
+              
+              <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden border border-white/10 mb-1">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(player.hp / player.maxHp) * 100}%` }}
+                  className="h-full bg-gradient-to-r from-cyan-600 to-cyan-400"
+                />
+              </div>
+              <div className="flex justify-between text-[8px] font-mono font-bold">
+                <span className="text-cyan-400">HP {player.hp}/{player.maxHp}</span>
+                {player.shield > 0 && <span className="text-blue-400">SHIELD {player.shield}</span>}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Hand UI */}
+        <div className="fixed bottom-0 left-0 w-full p-8 flex justify-center items-end gap-2 z-50 pointer-events-none">
+          {piles.hand.map((card, i) => {
+            const canPlay = pvpState.isMyTurn && player.energy >= card.cost;
+            return (
+              <motion.div
+                key={card.uid}
+                initial={{ y: 100, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                whileHover={canPlay ? { y: -20, scale: 1.1 } : {}}
+                onClick={() => canPlay && playPVPCard(card, i)}
+                className={`w-48 h-64 bg-black/90 border-2 rounded-2xl p-4 flex flex-col relative cursor-pointer pointer-events-auto transition-all ${
+                  canPlay ? 'border-cyan-500/50 shadow-[0_0_20px_rgba(6,182,212,0.2)]' : 'border-white/10 opacity-50 grayscale'
+                }`}
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <span className="text-xs font-black italic text-cyan-400 uppercase">{card.type}</span>
+                  <div className="w-6 h-6 rounded-full bg-cyan-500 flex items-center justify-center text-xs font-black">
+                    {card.cost}
+                  </div>
+                </div>
+                <div className="flex-1 flex flex-col items-center justify-center text-center">
+                  <h4 className="text-lg font-black italic uppercase mb-2 leading-tight">{card.name}</h4>
+                  <p className="text-[10px] opacity-60 leading-relaxed">{card.desc}</p>
+                </div>
+                <div className={`mt-4 pt-4 border-t border-white/10 text-[10px] font-mono uppercase tracking-widest text-center ${
+                  card.rarity === 'RARE' ? 'text-yellow-400' : 
+                  card.rarity === 'UNCOMMON' ? 'text-cyan-400' : 'text-white/40'
+                }`}>
+                  {card.rarity}
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+
+        {/* Controls */}
+        <div className="fixed bottom-8 right-8 z-50">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={endPVPTurn}
+            disabled={!pvpState.isMyTurn}
+            className={`px-8 py-4 rounded-full font-black italic uppercase shadow-xl transition-all ${
+              pvpState.isMyTurn 
+                ? 'bg-cyan-500 text-black hover:bg-cyan-400' 
+                : 'bg-white/10 text-white/40 cursor-not-allowed'
+            }`}
+          >
+            结束回合
+          </motion.button>
+        </div>
+      </div>
+    );
+  };
+
+  const playPVPCard = (card: Card, index: number) => {
+    if (!pvpState || !pvpState.isMyTurn || !player || player.energy < card.cost) return;
+
+    // Apply effects locally
+    setPlayer(prev => prev ? { ...prev, energy: prev.energy - card.cost, shield: prev.shield + (card.shield || 0) } : null);
+    
+    if (card.damage) {
+      const actualDamage = Math.max(0, card.damage - pvpState.opponentShield);
+      setPvpState(prev => prev ? {
+        ...prev,
+        opponentHp: Math.max(0, prev.opponentHp - actualDamage),
+        opponentShield: Math.max(0, prev.opponentShield - card.damage),
+      } : null);
+    }
+
+    // Move card to discard
+    const newHand = [...piles.hand];
+    newHand.splice(index, 1);
+    setPiles(prev => ({ ...prev, hand: newHand, discard: [...prev.discard, card] }));
+
+    // Send action to opponent
+    if (!pvpState.isAiOpponent) {
+      socketRef.current?.emit('game_action', {
+        roomId: pvpState.roomId,
+        action: { type: 'PLAY_CARD', card }
+      });
+    }
+
+    addLog(`你使用了 ${card.name}`, 'player');
+
+    // Check for victory
+    if (pvpState.opponentHp <= 0) {
+      setWinner('PLAYER');
+      setPhase('VICTORY');
+      if (!pvpState.isAiOpponent) {
+        socketRef.current?.emit('game_action', {
+          roomId: pvpState.roomId,
+          action: { type: 'GAME_OVER', winner: 'OPPONENT' }
+        });
+      }
+    }
+  };
+
+  const endPVPTurn = () => {
+    if (!pvpState || !pvpState.isMyTurn) return;
+
+    setPvpState(prev => prev ? { ...prev, isMyTurn: false } : null);
+    
+    if (!pvpState.isAiOpponent) {
+      socketRef.current?.emit('game_action', {
+        roomId: pvpState.roomId,
+        action: { type: 'END_TURN' }
+      });
+    }
+
+    addLog("回合结束", 'system');
+  };
+  const renderHub = () => (
+    <div className="h-full w-full bg-[#05050a] p-8 text-white flex flex-col items-center justify-center relative overflow-hidden">
+      <div className="absolute inset-0 opacity-10 pointer-events-none">
+        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,#00ffff_0%,transparent_70%)]" />
+      </div>
+
+      <div className="mb-12 text-center relative z-10">
+        <h2 className="text-7xl font-black italic tracking-tighter text-cyan-400 mb-2 glitch-text">作战中心 (HUB)</h2>
+        <p className="font-mono text-xs opacity-60 uppercase tracking-[0.5em]">准备下一次协议注入 (PREPARE FOR NEXT PROTOCOL)</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 max-w-7xl w-full relative z-10">
+        <motion.div 
+          whileHover={{ scale: 1.05, y: -5 }}
+          onClick={startRun}
+          className="p-6 border-2 border-cyan-500/30 bg-cyan-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-cyan-400 hover:bg-cyan-900/20 transition-all group"
+        >
+          <Zap className="w-12 h-12 text-cyan-400 mb-4 group-hover:animate-pulse" />
+          <h3 className="text-xl font-black italic uppercase">开始任务</h3>
+          <p className="text-[10px] opacity-60 mt-2 text-center">挑战病毒程序</p>
+        </motion.div>
+
+        <motion.div 
+          whileHover={{ scale: 1.05, y: -5 }}
+          onClick={() => {
+            const allCards = Object.values(INITIAL_DECKS).flat();
+            const randomCards = shuffle(allCards).slice(0, 3).map(c => {
+              let basePrice = 50;
+              if (c.rarity === 'UNCOMMON') basePrice = 100;
+              if (c.rarity === 'RARE') basePrice = 180;
+              if (c.rarity === 'STARTER') basePrice = 30;
+              
+              return { 
+                ...c, 
+                uid: generateUUID(),
+                price: basePrice + Math.floor(Math.random() * 20)
+              };
+            });
+            const relicsPool = shuffle(RELICS_DB).filter(r => !relics.find(pr => pr.id === r.id)).slice(0, 2);
+            const consumablesPool = shuffle(CONSUMABLES_DB).slice(0, 3);
+            const upgradesPool = shuffle(SHOP_UPGRADES_DB).filter(u => !purchasedUpgrades.includes(u.id)).slice(0, 2);
+            setShopCards(randomCards as any);
+            setShopRelics(relicsPool);
+            setShopConsumables(consumablesPool);
+            setShopUpgrades(upgradesPool);
+            setPhase('SHOP');
+          }}
+          className="p-6 border-2 border-yellow-500/30 bg-yellow-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-yellow-400 hover:bg-yellow-900/20 transition-all group"
+        >
+          <ShoppingCart className="w-12 h-12 text-yellow-400 mb-4 group-hover:animate-bounce" />
+          <h3 className="text-xl font-black italic uppercase">黑市终端</h3>
+          <p className="text-[10px] opacity-60 mt-2 text-center text-yellow-400/80">CREDITS: {gold}</p>
+        </motion.div>
+
+        <motion.div 
+          whileHover={{ scale: 1.05, y: -5 }}
+          onClick={() => setPhase('DECK_VIEW')}
+          className="p-6 border-2 border-purple-500/30 bg-purple-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-900/20 transition-all group"
+        >
+          <Database className="w-12 h-12 text-purple-400 mb-4 group-hover:rotate-12 transition-transform" />
+          <h3 className="text-xl font-black italic uppercase">背包系统</h3>
+          <p className="text-[10px] opacity-60 mt-2 text-center">协议数: {permanentDeck.length}</p>
+        </motion.div>
+
+        <motion.div 
+          whileHover={{ scale: 1.05, y: -5 }}
+          onClick={joinPVPLobby}
+          className="p-6 border-2 border-red-500/30 bg-red-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-red-400 hover:bg-red-900/20 transition-all group"
+        >
+          <Swords className="w-12 h-12 text-red-400 mb-4 group-hover:animate-spin" />
+          <h3 className="text-xl font-black italic uppercase">PVP 竞技场</h3>
+          <p className="text-[10px] opacity-60 mt-2 text-center">与其他玩家对战</p>
+        </motion.div>
+
+        <motion.div 
+          whileHover={{ scale: 1.05, y: -5 }}
+          onClick={() => {
+            setDiagnosticStep('CHOICE');
+            setShowDiagnostic(true);
+          }}
+          className="p-6 border-2 border-emerald-500/30 bg-emerald-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-900/20 transition-all group"
+        >
+          <ShieldCheck className="w-12 h-12 text-emerald-400 mb-4 group-hover:scale-110 transition-transform" />
+          <h3 className="text-xl font-black italic uppercase">系统自检</h3>
+          <p className="text-[10px] opacity-60 mt-2 text-center">优化或修复</p>
+        </motion.div>
+
+        <motion.div 
+          whileHover={{ scale: 1.05, y: -5 }}
+          onClick={() => setShowEvolution(true)}
+          className="p-6 border-2 border-emerald-500/30 bg-emerald-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-900/20 transition-all group"
+        >
+          <Activity className="w-12 h-12 text-emerald-400 mb-4 group-hover:animate-pulse" />
+          <h3 className="text-xl font-black italic uppercase">进化实验室</h3>
+          <p className="text-[10px] opacity-60 mt-2 text-center">提升协议等级</p>
+        </motion.div>
+
+        <motion.div 
+          whileHover={{ scale: 1.05, y: -5 }}
+          onClick={() => setShowEvolution(true)}
+          className="p-6 border-2 border-emerald-500/30 bg-emerald-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-900/20 transition-all group"
+        >
+          <Activity className="w-12 h-12 text-emerald-400 mb-4 group-hover:animate-pulse" />
+          <h3 className="text-xl font-black italic uppercase">进化实验室</h3>
+          <p className="text-[10px] opacity-60 mt-2 text-center">提升协议等级</p>
+        </motion.div>
+
+        <motion.div 
+          whileHover={{ scale: 1.05, y: -5 }}
+          onClick={() => setShowGacha(true)}
+          className="p-6 border-2 border-pink-500/30 bg-pink-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-pink-400 hover:bg-pink-900/20 transition-all group"
+        >
+          <Gift className="w-12 h-12 text-pink-400 mb-4 group-hover:animate-bounce" />
+          <h3 className="text-xl font-black italic uppercase">抽奖终端</h3>
+          <p className="text-[10px] opacity-60 mt-2 text-center">机会: {gachaTickets}</p>
+        </motion.div>
+
+        <motion.div 
+          whileHover={{ scale: 1.05, y: -5 }}
+          onClick={startEndlessTower}
+          className="p-6 border-2 border-red-500/30 bg-red-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-red-400 hover:bg-red-900/20 transition-all group"
+        >
+          <Skull className="w-12 h-12 text-red-400 mb-4 group-hover:scale-125 transition-transform" />
+          <h3 className="text-xl font-black italic uppercase">无尽塔</h3>
+          <p className="text-[10px] opacity-60 mt-2 text-center">极限挑战</p>
+        </motion.div>
+      </div>
+
+      <div className="flex gap-4 mt-8 relative z-10">
+        <button 
+          onClick={handleCheckIn}
+          disabled={lastCheckIn === new Date().toISOString().split('T')[0]}
+          className={`flex items-center gap-2 px-6 py-3 border-2 rounded-xl font-black uppercase tracking-widest transition-all
+            ${lastCheckIn === new Date().toISOString().split('T')[0] 
+              ? 'border-white/10 text-white/20 cursor-not-allowed' 
+              : 'border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black shadow-[0_0_20px_rgba(250,204,21,0.2)]'}
+          `}
+        >
+          <Gift className="w-5 h-5" />
+          {lastCheckIn === new Date().toISOString().split('T')[0] ? '今日已签到' : '每日签到'}
+        </button>
+
+        <button 
+          onClick={() => setShowTasks(true)}
+          className="flex items-center gap-2 px-6 py-3 border-2 border-cyan-400 text-cyan-400 rounded-xl font-black uppercase tracking-widest hover:bg-cyan-400 hover:text-black transition-all shadow-[0_0_20px_rgba(34,211,238,0.2)]"
+        >
+          <CheckCircle2 className="w-5 h-5" />
+          任务协议
+        </button>
+      </div>
+
+      <div className="mt-12 p-6 border border-white/10 rounded-2xl bg-white/5 flex items-center gap-6 z-10">
+        <img src={player?.img} className="w-24 h-24 object-contain" />
+        <div>
+          <h4 className="text-xl font-black italic" style={{ color: player?.color }}>{player?.name}</h4>
+          <div className="flex gap-4 mt-2 text-[10px] font-mono opacity-60 uppercase tracking-widest">
+            <span>HP: {player?.hp} / {player?.maxHp}</span>
+            <span>ENERGY: {player?.maxEnergy}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderShop = () => {
+    const hasDiscount = purchasedUpgrades.includes('bulk_discount');
+    const getPrice = (base: number) => hasDiscount ? Math.floor(base * 0.85) : base;
+    const refreshCost = purchasedUpgrades.includes('data_miner') ? 25 : 50;
+
+    return (
+      <div className="h-full w-full bg-[#05050a] text-white flex flex-col items-center overflow-hidden relative">
+        {/* Sticky Header with improved contrast */}
+        <div className="shrink-0 w-full bg-[#05050a]/90 backdrop-blur-xl border-b border-white/10 py-8 z-30 flex flex-col items-center relative">
+          <button 
+            onClick={() => setPhase('HUB')}
+            className="absolute top-8 right-8 p-2 border border-white/20 rounded-full hover:bg-white/10 transition-all z-50 group"
+          >
+            <Trash2 className="w-6 h-6 text-white/40 rotate-45 group-hover:text-white transition-colors" />
+          </button>
+          
+          <div className="absolute top-8 left-8 flex items-center gap-4">
+            <button 
+              onClick={refreshShop}
+              className="flex items-center gap-2 px-6 py-2 bg-cyan-900/40 border border-cyan-500/50 rounded-full text-[10px] font-black uppercase hover:bg-cyan-500 hover:text-black transition-all group"
+            >
+              <RefreshCw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
+              刷新商店 ({refreshCost})
+            </button>
+          </div>
+
+          <h2 className="text-4xl md:text-6xl font-black italic tracking-tighter text-yellow-400 mb-3 glitch-text">黑市终端</h2>
+          <div className="inline-flex items-center gap-3 px-6 py-2 bg-yellow-400/10 border border-yellow-400/30 rounded-full">
+            <Coins className="w-4 h-4 text-yellow-400" />
+            <span className="font-mono text-sm uppercase tracking-[0.2em] text-yellow-400">可用信用点: {gold}</span>
+          </div>
+        </div>
+
+        {/* Scrollable Content Area */}
+        <div className="flex-1 w-full overflow-y-auto custom-scrollbar px-4 md:px-8 pt-8 pb-48">
+          <div className="w-full max-w-6xl mx-auto space-y-16">
+            {/* Shop Upgrades Section */}
+            <section>
+              <h3 className="text-2xl font-black italic text-emerald-400 uppercase mb-8 border-l-4 border-emerald-400 pl-4">系统升级 (SHOP UPGRADES)</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {shopUpgrades.map((upgrade, i) => (
+                  <div key={upgrade.id || i} className="flex items-center gap-6 bg-white/5 p-6 rounded-3xl border border-white/10 hover:border-emerald-500/30 transition-all group">
+                    <div className="w-24 h-24 bg-emerald-950/20 border-2 border-emerald-500/30 rounded-2xl flex items-center justify-center group-hover:border-emerald-400 transition-all shrink-0">
+                      {upgrade.icon === 'ShoppingCart' && <ShoppingCart className="w-12 h-12 text-emerald-400" />}
+                      {upgrade.icon === 'Search' && <Search className="w-12 h-12 text-emerald-400" />}
+                      {upgrade.icon === 'Star' && <Star className="w-12 h-12 text-emerald-400" />}
+                      {upgrade.icon === 'Lock' && <Lock className="w-12 h-12 text-emerald-400" />}
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="text-xl font-black italic text-white uppercase">{upgrade.name}</h4>
+                      <p className="text-xs text-white/60 mt-2 leading-relaxed">{upgrade.desc}</p>
+                      <button 
+                        onClick={() => {
+                          const price = getPrice(upgrade.price);
+                          if (gold >= price) {
+                            setGold(prev => prev - price);
+                            setPurchasedUpgrades(prev => [...prev, upgrade.id]);
+                            setShopUpgrades(prev => prev.filter(u => u.id !== upgrade.id));
+                            addFloatingText(`已激活: ${upgrade.name}`, '#10b981', 'PLAYER');
+                          }
+                        }}
+                        disabled={gold < getPrice(upgrade.price)}
+                        className={`mt-5 px-8 py-3 border-2 font-black uppercase text-[10px] tracking-widest transition-all rounded-lg
+                          ${gold >= getPrice(upgrade.price) ? 'border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black shadow-[0_0_15px_rgba(250,204,21,0.2)]' : 'border-white/10 text-white/20 cursor-not-allowed'}
+                        `}
+                      >
+                        购买: {getPrice(upgrade.price)}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* New Terminals Section */}
+            <section>
+              <h3 className="text-2xl font-black italic text-purple-400 uppercase mb-8 border-l-4 border-purple-400 pl-4">终端访问</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {POKEMON_DB.filter(p => !party.find(pp => pp.id === p.id)).slice(0, 3).map(p => {
+                  const price = getPrice(300);
+                  return (
+                    <div key={p.id} className="bg-white/5 p-6 rounded-3xl border border-white/10 hover:border-purple-500/30 transition-all flex flex-col items-center group">
+                      <img src={p.img} alt={p.name} className="w-32 h-32 object-contain mb-4 group-hover:scale-110 transition-transform" referrerPolicy="no-referrer" />
+                      <h4 className="text-xl font-black italic text-white uppercase" style={{ color: p.color }}>{p.name}</h4>
+                      <div className="text-[10px] font-mono opacity-60 mt-2 uppercase">最大系统完整度: {p.maxHp} // 核心算力: {p.maxEnergy}</div>
+                      <button 
+                        onClick={() => {
+                          if (gold >= price) {
+                            setGold(prev => prev - price);
+                            const newPokemon: EntityState = {
+                              ...p,
+                              hp: p.maxHp,
+                              shield: 0,
+                              energy: p.maxEnergy,
+                              maxEnergy: p.maxEnergy,
+                              statusEffects: [],
+                              level: p.level || 1,
+                              xp: p.xp || 0,
+                              nextXp: p.nextXp || 100,
+                            };
+                            setParty(prev => [...prev, newPokemon]);
+                            
+                            // Add starter cards
+                            const starterCards = INITIAL_DECKS[p.id] || [];
+                            const newCards = starterCards.map(c => ({ ...c, uid: generateUUID(), isEquipped: true } as Card));
+                            setPermanentDeck(prev => [...prev, ...newCards]);
+                            
+                            addFloatingText(`已激活终端: ${p.name}`, p.color, 'PLAYER');
+                            updateTaskProgress('GOLD_SPENT', price);
+                          }
+                        }}
+                        disabled={gold < price}
+                        className={`mt-6 w-full py-3 border-2 font-black uppercase text-[10px] tracking-widest transition-all rounded-lg
+                          ${gold >= price ? 'border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black' : 'border-white/10 text-white/20 cursor-not-allowed'}
+                        `}
+                      >
+                        购买权限: {price}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* Cards Section */}
+            <section>
+              <h3 className="text-2xl font-black italic text-cyan-400 uppercase mb-8 border-l-4 border-cyan-400 pl-4">协议卡牌 (PROTOCOLS)</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                {shopCards.map((card: any, i) => {
+                  const price = getPrice(card.price);
+                  return (
+                    <div key={card.uid || i} className="flex flex-col items-center gap-6 bg-white/5 p-6 rounded-3xl border border-white/10 hover:border-cyan-500/30 transition-all group">
+                      {renderCard(card, i, { isStatic: true })}
+                      <button 
+                        onClick={() => {
+                          if (gold >= price) {
+                            setGold(prev => prev - price);
+                            setPermanentDeck(prev => [...prev, { ...card, uid: generateUUID(), isEquipped: true }]);
+                            setShopCards(prev => prev.filter(c => c.uid !== card.uid));
+                            updateTaskProgress('GOLD_SPENT', price);
+                          }
+                        }}
+                        disabled={gold < price}
+                        className={`w-full py-4 border-2 font-black uppercase text-xs tracking-widest transition-all rounded-xl
+                          ${gold >= price ? 'border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black shadow-[0_0_15px_rgba(250,204,21,0.2)]' : 'border-white/10 text-white/20 cursor-not-allowed'}
+                        `}
+                      >
+                        购买: {price}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* Relics Section */}
+            <section>
+              <h3 className="text-2xl font-black italic text-purple-400 uppercase mb-8 border-l-4 border-purple-400 pl-4">永久插件 (RELICS)</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {shopRelics.map((relic, i) => {
+                  const price = getPrice(relic.price || 150);
+                  return (
+                    <div key={relic.id || i} className="flex items-center gap-6 bg-white/5 p-6 rounded-3xl border border-white/10 hover:border-purple-500/30 transition-all group">
+                      <div className="w-24 h-24 bg-purple-950/20 border-2 border-purple-500/30 rounded-2xl flex items-center justify-center group-hover:border-purple-400 transition-all shrink-0">
+                        {relic.icon === 'Database' && <Database className="w-12 h-12 text-purple-400" />}
+                        {relic.icon === 'Activity' && <Activity className="w-12 h-12 text-purple-400" />}
+                        {relic.icon === 'Zap' && <Zap className="w-12 h-12 text-purple-400" />}
+                        {relic.icon === 'Shield' && <Shield className="w-12 h-12 text-purple-400" />}
+                        {relic.icon === 'Swords' && <Swords className="w-12 h-12 text-purple-400" />}
+                        {relic.icon === 'Coins' && <Coins className="w-12 h-12 text-purple-400" />}
+                        {relic.icon === 'HeartPulse' && <HeartPulse className="w-12 h-12 text-purple-400" />}
+                        {relic.icon === 'Search' && <Search className="w-12 h-12 text-purple-400" />}
+                        {relic.icon === 'Share2' && <Share2 className="w-12 h-12 text-purple-400" />}
+                        {relic.icon === 'Heart' && <Heart className="w-12 h-12 text-purple-400" />}
+                        {relic.icon === 'Coffee' && <Coffee className="w-12 h-12 text-purple-400" />}
+                        {relic.icon === 'ShieldAlert' && <ShieldAlert className="w-12 h-12 text-purple-400" />}
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="text-xl font-black italic text-white uppercase">{relic.name}</h4>
+                        <p className="text-xs text-white/60 mt-2 leading-relaxed">{relic.desc}</p>
+                        <button 
+                          onClick={() => {
+                            if (gold >= price) {
+                              setGold(prev => prev - price);
+                              setRelics(prev => [...prev, relic]);
+                              setShopRelics(prev => prev.filter(r => r.id !== relic.id));
+                              updateTaskProgress('GOLD_SPENT', price);
+                            }
+                          }}
+                          disabled={gold < price}
+                          className={`mt-5 px-8 py-3 border-2 font-black uppercase text-[10px] tracking-widest transition-all rounded-lg
+                            ${gold >= price ? 'border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black shadow-[0_0_15px_rgba(250,204,21,0.2)]' : 'border-white/10 text-white/20 cursor-not-allowed'}
+                          `}
+                        >
+                          购买: {price}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* Consumables Section */}
+            <section>
+              <h3 className="text-2xl font-black italic text-green-400 uppercase mb-8 border-l-4 border-green-400 pl-4">消耗性补给 (CONSUMABLES)</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                {shopConsumables.map((item, i) => {
+                  const price = getPrice(item.price);
+                  return (
+                    <div key={item.id || i} className="bg-white/5 p-8 rounded-3xl border border-white/10 hover:border-green-500/30 transition-all flex flex-col items-center text-center group">
+                      <div className="w-20 h-20 bg-green-950/20 border-2 border-green-500/30 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                        {item.icon === 'Heart' && <Heart className="w-10 h-10 text-green-400" />}
+                        {item.icon === 'HeartPulse' && <HeartPulse className="w-10 h-10 text-green-400" />}
+                        {item.icon === 'Activity' && <Activity className="w-10 h-10 text-green-400" />}
+                        {item.icon === 'Zap' && <Zap className="w-10 h-10 text-green-400" />}
+                        {item.icon === 'RefreshCw' && <RefreshCw className="w-10 h-10 text-green-400" />}
+                        {item.icon === 'Swords' && <Swords className="w-10 h-10 text-green-400" />}
+                        {item.icon === 'Shield' && <Shield className="w-10 h-10 text-green-400" />}
+                        {item.icon === 'Star' && <Star className="w-10 h-10 text-green-400" />}
+                        {item.icon === 'Circle' && <Circle className="w-10 h-10 text-green-400" />}
+                        {item.icon === 'Disc' && <Disc className="w-10 h-10 text-green-400" />}
+                        {item.icon === 'Crosshair' && <Crosshair className="w-10 h-10 text-green-400" />}
+                        {item.icon === 'ShieldCheck' && <ShieldCheck className="w-10 h-10 text-green-400" />}
+                      </div>
+                      <h4 className="text-xl font-black italic text-white uppercase">{item.name}</h4>
+                      <p className="text-xs text-white/60 mt-2 h-10 leading-relaxed">{item.desc}</p>
+                      <button 
+                        onClick={() => {
+                          if (gold >= price) {
+                            setGold(prev => prev - price);
+                            setInventory(prev => [...prev, item]);
+                            updateTaskProgress('GOLD_SPENT', price);
+                          }
+                        }}
+                        disabled={gold < price}
+                        className={`mt-6 w-full py-3 border-2 font-black uppercase text-[10px] tracking-widest transition-all rounded-lg
+                          ${gold >= price ? 'border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black shadow-[0_0_15px_rgba(250,204,21,0.2)]' : 'border-white/10 text-white/20 cursor-not-allowed'}
+                        `}
+                      >
+                        购买: {price}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          </div>
+        </div>
+
+        {/* Fixed Navigation with safe area */}
+        <div className="shrink-0 w-full py-10 bg-gradient-to-t from-[#05050a] via-[#05050a]/80 to-transparent flex justify-center z-40 pointer-events-none">
+          <button 
+            onClick={() => setPhase('HUB')}
+            className="pointer-events-auto px-20 py-5 bg-yellow-400 text-black border-2 border-yellow-400 text-sm font-black uppercase tracking-[0.4em] hover:bg-black hover:text-yellow-400 transition-all rounded-2xl shadow-[0_0_50px_rgba(250,204,21,0.3)]"
+          >
+            返回作战中心
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   const renderRest = () => (
     <div className="h-full w-full bg-[#05050a] p-8 text-white flex flex-col items-center justify-center">
       <div className="mb-12 text-center">
-        <h2 className="text-6xl font-black italic tracking-tighter text-green-400 mb-2 glitch-text">数据碎片整理 (DEFRAGMENTATION)</h2>
+        <h2 className="text-6xl font-black italic tracking-tighter text-green-400 mb-2 glitch-text">数据碎片整理</h2>
         <p className="font-mono text-xs opacity-60 uppercase tracking-[0.4em]">选择一项维护操作</p>
       </div>
 
@@ -738,22 +2524,23 @@ export default function App() {
         <motion.div 
           whileHover={{ scale: 1.1 }}
           onClick={() => {
-            setPlayer(p => p ? { ...p, hp: Math.min(p.maxHp, p.hp + Math.floor(p.maxHp * 0.3)) } : null);
+            setPlayer(p => p ? { ...p, hp: Math.min(p.maxHp, p.hp + Math.floor(p.maxHp * 0.5)) } : null);
             setPhase('MAP');
           }}
           className="w-64 h-64 border-2 border-green-500/30 bg-green-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-green-400 transition-all group"
         >
           <Activity className="w-16 h-16 text-green-400 mb-4 group-hover:animate-pulse" />
           <h3 className="text-xl font-black italic uppercase">系统修复</h3>
-          <p className="text-[10px] opacity-60 mt-2">恢复 30% 系统完整度</p>
+          <p className="text-[10px] opacity-60 mt-2">恢复 50% 系统完整度</p>
         </motion.div>
 
         <motion.div 
           whileHover={{ scale: 1.1 }}
           onClick={() => {
-            // Simple upgrade logic: pick a random card in deck and add +3 damage or +3 shield
-            setDeck(prev => {
+            // Simple upgrade logic: pick a random card in permanent deck and add +3 damage or +3 shield
+            setPermanentDeck(prev => {
               const newDeck = [...prev];
+              if (newDeck.length === 0) return prev;
               const idx = Math.floor(Math.random() * newDeck.length);
               const card = { ...newDeck[idx] };
               if (card.damage) card.damage += 3;
@@ -768,31 +2555,29 @@ export default function App() {
         >
           <Zap className="w-16 h-16 text-cyan-400 mb-4 group-hover:animate-pulse" />
           <h3 className="text-xl font-black italic uppercase">内核优化</h3>
-          <p className="text-[10px] opacity-60 mt-2">随机强化数据库中的一张卡牌</p>
+          <p className="text-[10px] opacity-60 mt-2">随机强化背包系统中的一张卡牌</p>
         </motion.div>
       </div>
     </div>
   );
 
   const renderGameOver = () => (
-    <div className="h-full w-full bg-red-950/20 flex flex-col items-center justify-center p-6 text-white overflow-hidden relative">
-      <div className="absolute inset-0 bg-black opacity-80 z-0" />
-      <div className="relative z-10 text-center">
-        <motion.h2 
-          initial={{ scale: 2, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="text-8xl font-black italic tracking-tighter text-red-600 mb-4 glitch-text"
-        >
-          SYSTEM CRASHED
-        </motion.h2>
-        <p className="font-mono text-sm tracking-[0.8em] text-red-400 uppercase mb-12">核心数据已损坏 // 链接中断</p>
-        <button 
-          onClick={() => window.location.reload()}
-          className="px-12 py-4 bg-red-600 text-white font-black uppercase tracking-widest hover:bg-red-500 transition-all shadow-[0_0_30px_rgba(255,0,0,0.5)]"
-        >
-          重新引导系统
-        </button>
-      </div>
+    <div className="h-full w-full bg-[#05050a] flex flex-col items-center justify-center p-6 text-white overflow-hidden relative">
+      <div className="absolute inset-0 bg-red-900/10 pointer-events-none" />
+      <motion.h2 
+        initial={{ scale: 0.5, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="text-8xl font-black italic tracking-tighter mb-4 text-red-500 drop-shadow-[0_0_30px_rgba(255,0,0,0.5)]"
+      >
+        系统崩溃 (CRASH)
+      </motion.h2>
+      <p className="font-mono text-xs tracking-[0.5em] text-red-400/60 uppercase mb-12">连接已断开，数据已上传至 HUB</p>
+      <button 
+        onClick={() => setPhase('HUB')}
+        className="px-12 py-4 bg-transparent border-2 border-red-500 text-red-400 font-black uppercase tracking-widest hover:bg-red-500 hover:text-black transition-all shadow-[0_0_30px_rgba(255,0,0,0.2)]"
+      >
+        返回作战中心
+      </button>
     </div>
   );
 
@@ -805,7 +2590,7 @@ export default function App() {
           animate={{ scale: 1, rotate: 0 }}
           className="text-8xl font-black italic tracking-tighter text-cyan-400 mb-4 glitch-text"
         >
-          FIREWALL BREACHED
+          防火墙已突破
         </motion.h2>
         <p className="font-mono text-sm tracking-[0.8em] text-cyan-400 uppercase mb-12">最高权限已获得 // 任务完成</p>
         <button 
@@ -818,13 +2603,14 @@ export default function App() {
     </div>
   );
 
-  const renderCard = (card: Card, index: number) => {
-    const isPlayable = turn === 'PLAYER' && !isAnimating && (player?.energy || 0) >= card.cost;
+  const renderCard = (card: Card, index: number, options?: { isStatic?: boolean, onClick?: () => void }) => {
+    const isPlayable = !options?.isStatic && turn === 'PLAYER' && !isAnimating && (player?.energy || 0) >= card.cost;
     const typeColors = {
       ATTACK: 'border-red-500/50 text-red-400 bg-red-950/20 shadow-[0_0_10px_rgba(239,68,68,0.2)]',
       SKILL: 'border-blue-500/50 text-blue-400 bg-blue-950/20 shadow-[0_0_10px_rgba(96,165,250,0.2)]',
       POWER: 'border-yellow-500/50 text-yellow-400 bg-yellow-950/20 shadow-[0_0_10px_rgba(250,204,21,0.2)]',
       STATUS: 'border-gray-500/50 text-gray-400 bg-gray-950/20 shadow-[0_0_10px_rgba(156,163,175,0.2)]',
+      CURSE: 'border-purple-900/50 text-purple-400 bg-purple-950/40 shadow-[0_0_10px_rgba(147,51,234,0.2)]',
     };
 
     return (
@@ -838,10 +2624,10 @@ export default function App() {
           scale: 1.15, 
           zIndex: 50,
           boxShadow: '0 0 30px rgba(0,255,255,0.3)'
-        } : {}}
-        onClick={() => executeCard(card)}
+        } : (options?.isStatic ? {} : { scale: 1.02 })}
+        onClick={options?.onClick || (options?.isStatic ? undefined : () => executeCard(card))}
         className={`relative w-36 h-52 rounded-xl border-2 p-3 flex flex-col cursor-pointer transition-all duration-300
-          ${typeColors[card.type]} ${isPlayable ? 'hover:border-cyan-400' : 'opacity-40 grayscale cursor-not-allowed'}
+          ${typeColors[card.type]} ${isPlayable || options?.isStatic ? 'hover:border-cyan-400' : 'opacity-40 grayscale cursor-not-allowed'}
           backdrop-blur-xl overflow-hidden group`}
       >
         {/* Card Scanline */}
@@ -874,276 +2660,899 @@ export default function App() {
     );
   };
 
-  if (phase === 'START') {
+  const renderDeckView = () => {
+    const equippedCount = permanentDeck.filter(c => c.isEquipped !== false).length;
+    
     return (
-      <div className="h-full w-full bg-[#05050a] flex flex-col items-center justify-center p-6 text-white overflow-hidden relative">
-        <div className="absolute inset-0 opacity-20 pointer-events-none">
-          <div className="w-full h-full bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%]" />
-        </div>
-        <motion.h1 
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="text-7xl font-black italic tracking-tighter mb-2 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-white to-pink-500 drop-shadow-[0_0_20px_rgba(0,255,255,0.5)]"
-        >
-          CYBERPOKE
-        </motion.h1>
-        <p className="font-mono text-xs tracking-[0.5em] text-cyan-400/60 uppercase mb-12">赛博宝可梦：战术指令集 (Tactical Protocol)</p>
+      <div className="h-full w-full bg-[#05050a] p-8 text-white flex flex-col items-center overflow-y-auto no-scrollbar relative">
         <button 
-          onClick={() => setPhase('SELECT')}
-          className="px-12 py-4 bg-transparent border-2 border-cyan-500 text-cyan-400 font-black uppercase tracking-widest hover:bg-cyan-500 hover:text-black transition-all shadow-[0_0_30px_rgba(0,255,255,0.2)]"
+          onClick={() => setPhase('HUB')}
+          className="absolute top-8 right-8 p-2 border border-white/20 rounded-full hover:bg-white/10 transition-all z-50"
         >
-          初始化链接 (INITIALIZE)
+          <Trash2 className="w-6 h-6 text-white/40 rotate-45" />
         </button>
-      </div>
-    );
-  }
 
-  if (phase === 'SELECT') {
-    return (
-      <div className="h-full w-full bg-[#05050a] p-8 text-white overflow-y-auto no-scrollbar">
-        <h2 className="text-4xl font-black italic mb-12 text-center tracking-tighter">选择你的作战终端 (SELECT TERMINAL)</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-          {POKEMON_DB.map(p => (
-            <motion.div
-              key={p.id}
-              whileHover={{ scale: 1.05, y: -10 }}
-              onClick={() => initGame(p.id)}
-              className={`relative p-6 rounded-2xl border-2 border-white/10 cursor-pointer overflow-hidden group bg-gradient-to-b ${p.bgGradient}`}
-            >
-              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-30 transition-opacity">
-                <Database className="w-24 h-24" />
-              </div>
-              <img src={p.img} alt={p.name} className="w-48 h-48 object-contain mx-auto mb-6 drop-shadow-[0_0_30px_rgba(255,255,255,0.2)]" />
-              <h3 className="text-2xl font-black italic uppercase mb-2" style={{ color: p.color }}>{p.name}</h3>
-              <div className="space-y-1 text-xs font-mono opacity-60">
-                <p>系统完整度: {p.maxHp}</p>
-                <p>核心算力: {p.maxEnergy}</p>
-              </div>
-              <div className="mt-6 flex items-center text-cyan-400 font-black text-sm group-hover:translate-x-2 transition-transform">
-                建立链接 <ChevronRight className="w-4 h-4 ml-1" />
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (phase === 'MAP') return renderMap();
-  if (phase === 'REWARD') {
-    const rewards = INITIAL_DECKS[player!.id].slice(0, 3).map(c => ({ ...c, uid: generateUUID() }));
-    return (
-      <div className="h-full w-full bg-[#05050a] p-8 text-white flex flex-col items-center justify-center">
-        <motion.div 
-          initial={{ y: -50, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          className="mb-12 text-center"
-        >
-          <h2 className="text-6xl font-black italic tracking-tighter text-cyan-400 mb-2 glitch-text">数据提取成功 (DATA EXTRACTED)</h2>
-          <p className="font-mono text-xs opacity-60 uppercase tracking-[0.4em]">选择一个协议注入你的源代码库</p>
-        </motion.div>
-
-        <div className="flex gap-6 mb-12">
-          {rewards.map((card, i) => (
-            <div key={i} onClick={() => {
-              setDeck(prev => [...prev, card as any]);
-              setFloor(prev => prev + 1);
-              setPhase('MAP');
-            }}>
-              {renderCard(card as any, i)}
-            </div>
-          ))}
-        </div>
-
-        <button 
-          onClick={() => {
-            setFloor(prev => prev + 1);
-            setPhase('MAP');
-          }}
-          className="px-12 py-4 border-2 border-white/20 text-sm font-black uppercase tracking-[0.3em] hover:bg-white/10 transition-all"
-        >
-          跳过注入
-        </button>
-      </div>
-    );
-  }
-  if (phase === 'SHOP') return renderShop();
-  if (phase === 'REST') return renderRest();
-  if (phase === 'GAMEOVER') return renderGameOver();
-  if (phase === 'VICTORY') return renderVictory();
-
-  return (
-    <div 
-      ref={containerRef}
-      className={`h-full w-full bg-[#05050a] flex flex-col text-white relative overflow-hidden ${isGlitching ? 'animate-pulse' : ''}`}
-      style={{ 
-        transform: isShaking ? `translate(${(Math.random()-0.5)*isShaking}px, ${(Math.random()-0.5)*isShaking}px)` : 'none'
-      }}
-    >
-        {/* Background Grid */}
-        <div className="absolute inset-0 opacity-10 pointer-events-none bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:40px_40px]" />
-
-        {/* Floating Texts */}
-        <AnimatePresence>
-          {floatingTexts.map(t => (
-            <motion.div
-              key={t.id}
-              initial={{ opacity: 1, y: t.y, x: t.x }}
-              animate={{ opacity: 0, y: t.y - 100 }}
-              className="absolute left-1/2 top-1/2 z-[100] font-black text-3xl italic pointer-events-none"
-              style={{ color: t.color, textShadow: '0 0 10px rgba(0,0,0,0.5)' }}
-            >
-              {t.text}
-            </motion.div>
-          ))}
-        </AnimatePresence>
-
-        {/* Top Bar: Enemy */}
-        <div className="p-6 flex justify-between items-start relative z-20">
-          <div className="flex flex-col gap-2 w-64">
-            <div className="flex justify-between items-end">
-              <span className="text-xs font-mono opacity-60 uppercase tracking-widest">敌方协议 (ENEMY PROTOCOL)</span>
-              <span className="text-xl font-black italic" style={{ color: enemy?.color }}>{enemy?.name}</span>
-            </div>
-            <div className="h-4 bg-white/5 rounded-full overflow-hidden border border-white/10 relative">
-              <motion.div 
-                animate={{ width: `${(enemy!.hp / enemy!.maxHp) * 100}%` }}
-                className="h-full bg-gradient-to-r from-red-600 to-pink-500"
-              />
-              <div className="absolute inset-0 flex items-center justify-center text-[10px] font-black">
-                {enemy?.hp} / {enemy?.maxHp}
-              </div>
-            </div>
-            <div className="flex gap-2">
-              {enemy?.shield! > 0 && (
-                <div className="bg-blue-600 px-2 py-0.5 rounded text-[10px] font-black flex items-center gap-1">
-                  <Shield className="w-3 h-3" /> {enemy?.shield}
-                </div>
-              )}
-              {enemy?.statusEffects.map((s, i) => <StatusIcon key={i} effect={s} />)}
-            </div>
-          </div>
-
-          <div className="flex flex-col items-end gap-2">
-             <div className="text-[10px] font-mono opacity-40 uppercase">System Time: {new Date().toLocaleTimeString()}</div>
-             <div className="flex gap-2 mb-2">
-                {relics.map(r => (
-                  <div key={r.id} className="w-8 h-8 rounded border border-cyan-400/30 bg-cyan-950/20 flex items-center justify-center group relative cursor-help">
-                    <Database className="w-4 h-4 text-cyan-400" />
-                    <div className="absolute top-full right-0 mt-2 w-48 p-2 bg-black/90 border border-cyan-400 text-[10px] hidden group-hover:block z-50">
-                      <div className="font-black text-cyan-400 uppercase mb-1">{r.name}</div>
-                      <div className="opacity-70">{r.desc}</div>
-                    </div>
-                  </div>
-                ))}
-             </div>
-             <div className="flex gap-4">
-                <div className="text-right">
-                   <div className="text-[8px] opacity-40 uppercase">回收站 (RECYCLE)</div>
-                   <div className="text-xl font-black italic text-pink-500">{discard.length}</div>
-                </div>
-                <div className="text-right">
-                   <div className="text-[8px] opacity-40 uppercase">源代码库 (SOURCE)</div>
-                   <div className="text-xl font-black italic text-cyan-500">{deck.length}</div>
-                </div>
-             </div>
+        <div className="mb-12 text-center">
+          <h2 className="text-6xl font-black italic tracking-tighter text-purple-400 mb-2 glitch-text">背包系统 (BACKPACK)</h2>
+          <div className="flex flex-col items-center gap-2">
+            <p className="font-mono text-xs opacity-60 uppercase tracking-[0.4em]">当前加载的协议数量: {permanentDeck.length}</p>
+            <p className="font-mono text-[10px] text-cyan-400 uppercase tracking-[0.2em]">已装载战斗协议: {equippedCount} / {permanentDeck.length}</p>
+            <p className="text-[10px] text-white/40 italic mt-2">点击卡牌切换装载状态 (至少保留5张以保证系统运行)</p>
           </div>
         </div>
 
-        {/* Battle Arena */}
-        <div className="flex-1 relative flex flex-col items-center justify-center">
-          {/* VFX Overlay */}
-          <AnimatePresence>
-            {activeVfx && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="absolute inset-0 z-50 pointer-events-none flex items-center justify-center"
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6 max-w-7xl mx-auto mb-24">
+          {permanentDeck.map((card, i) => {
+            const isEquipped = card.isEquipped !== false;
+            return (
+              <div 
+                key={card.uid} 
+                className={`scale-90 origin-top transition-all duration-300 relative group ${!isEquipped ? 'opacity-40 grayscale' : ''}`}
               >
-                <div className={`vfx-${activeVfx.type} ${activeVfx.target === 'PLAYER' ? 'translate-y-48' : '-translate-y-48'}`} />
-              </motion.div>
+                {renderCard(card, i, { 
+                  isStatic: true, 
+                  onClick: () => {
+                    if (isEquipped && equippedCount <= 5) {
+                      addFloatingText('系统警告: 至少需要5个协议', '#ef4444', 'PLAYER');
+                      return;
+                    }
+                    setPermanentDeck(prev => prev.map(c => c.uid === card.uid ? { ...c, isEquipped: !isEquipped } : c));
+                  }
+                })}
+                <div className={`absolute -top-2 -right-2 w-6 h-6 rounded-full border-2 flex items-center justify-center z-50 transition-all pointer-events-none
+                  ${isEquipped ? 'bg-cyan-500 border-cyan-400' : 'bg-black/80 border-white/20'}
+                `}>
+                  {isEquipped ? <CheckCircle2 className="w-4 h-4 text-white" /> : <div className="w-2 h-2 rounded-full bg-white/20" />}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">
+          <button 
+            onClick={() => setPhase('HUB')}
+            className="px-16 py-4 bg-purple-950/20 border-2 border-purple-500/30 text-sm font-black uppercase tracking-[0.3em] hover:bg-purple-900/40 hover:border-purple-400 transition-all backdrop-blur-md rounded-2xl shadow-[0_0_30px_rgba(168,85,247,0.1)]"
+          >
+            退出背包系统
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderBackpack = () => {
+    return (
+      <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <motion.div 
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="bg-[#0a0a15] border-2 border-cyan-500/50 p-6 rounded-2xl w-full max-w-md relative overflow-hidden"
+        >
+          <div className="absolute inset-0 opacity-5 pointer-events-none bg-[radial-gradient(circle_at_center,#06b6d4_0%,transparent_70%)]" />
+          <div className="flex justify-between items-center mb-6 relative z-10">
+            <h2 className="text-2xl font-black italic tracking-tighter text-cyan-400 uppercase">战术背包 (TACTICAL BACKPACK)</h2>
+            <button onClick={() => setShowBackpack(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 max-h-[400px] overflow-y-auto pr-2 relative z-10 custom-scrollbar">
+            {inventory.length === 0 ? (
+              <div className="text-center py-8 opacity-40 italic font-mono">背包为空 (EMPTY)</div>
+            ) : (
+              inventory.map((item, idx) => (
+                <div 
+                  key={`${item.id}-${idx}`}
+                  className="p-3 bg-white/5 border border-white/10 rounded-xl flex items-center gap-4 hover:border-cyan-500/50 transition-all group"
+                >
+                  <div className="w-12 h-12 bg-cyan-500/10 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                    {item.icon === 'Heart' && <Heart className="w-6 h-6 text-cyan-400" />}
+                    {item.icon === 'HeartPulse' && <HeartPulse className="w-6 h-6 text-cyan-400" />}
+                    {item.icon === 'Activity' && <Activity className="w-6 h-6 text-cyan-400" />}
+                    {item.icon === 'Zap' && <Zap className="w-6 h-6 text-cyan-400" />}
+                    {item.icon === 'RefreshCw' && <RefreshCw className="w-6 h-6 text-cyan-400" />}
+                    {item.icon === 'Swords' && <Swords className="w-6 h-6 text-cyan-400" />}
+                    {item.icon === 'Shield' && <Shield className="w-6 h-6 text-cyan-400" />}
+                    {item.icon === 'Star' && <Star className="w-6 h-6 text-cyan-400" />}
+                    {item.icon === 'Circle' && <Circle className="w-6 h-6 text-cyan-400" />}
+                    {item.icon === 'Disc' && <Disc className="w-6 h-6 text-cyan-400" />}
+                    {item.icon === 'Crosshair' && <Crosshair className="w-6 h-6 text-cyan-400" />}
+                    {item.icon === 'ShieldCheck' && <ShieldCheck className="w-6 h-6 text-cyan-400" />}
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-black text-sm uppercase tracking-wide">{item.name}</div>
+                    <div className="text-[10px] opacity-60 font-mono">{item.desc}</div>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      useConsumable(item, idx);
+                      setShowBackpack(false);
+                    }}
+                    disabled={turn !== 'PLAYER' || isAnimating}
+                    className="px-4 py-2 bg-cyan-500 text-black font-black text-xs rounded-lg hover:bg-cyan-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors uppercase"
+                  >
+                    使用 (USE)
+                  </button>
+                </div>
+              ))
             )}
+          </div>
+        </motion.div>
+      </div>
+    );
+  };
+
+  const renderPartySwitch = () => {
+    return (
+      <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <motion.div 
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="bg-[#0a0a15] border-2 border-purple-500/50 p-6 rounded-2xl w-full max-w-md relative overflow-hidden"
+        >
+          <div className="absolute inset-0 opacity-5 pointer-events-none bg-[radial-gradient(circle_at_center,#a855f7_0%,transparent_70%)]" />
+          <div className="flex justify-between items-center mb-6 relative z-10">
+            <h2 className="text-2xl font-black italic tracking-tighter text-purple-400 uppercase">终端切换 (TERMINAL SWITCH)</h2>
+            <button onClick={() => setShowPartySwitch(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 relative z-10">
+            {party.map((p, idx) => (
+              <div 
+                key={`${p.id}-${idx}`}
+                className={`p-3 border rounded-xl flex items-center gap-4 transition-all ${idx === activePokemonIndex ? 'bg-purple-500/20 border-purple-500' : 'bg-white/5 border-white/10 hover:border-purple-500/50'}`}
+              >
+                <img src={p.img} alt={p.name} className="w-12 h-12 object-contain" referrerPolicy="no-referrer" />
+                <div className="flex-1">
+                  <div className="flex justify-between items-center">
+                    <div className="font-black text-sm uppercase tracking-wide" style={{ color: p.color }}>{p.name}</div>
+                    <div className="text-[10px] font-black text-yellow-400">LVL {p.level}</div>
+                  </div>
+                  <div className="h-2 bg-white/5 rounded-full overflow-hidden border border-white/10 mt-1">
+                    <div className="h-full bg-gradient-to-r from-cyan-500 to-blue-600" style={{ width: `${(p.hp / p.maxHp) * 100}%` }} />
+                  </div>
+                  <div className="h-1 bg-white/5 rounded-full overflow-hidden mt-1">
+                    <div className="h-full bg-yellow-400" style={{ width: `${(p.xp / p.nextXp) * 100}%` }} />
+                  </div>
+                  <div className="flex justify-between text-[8px] font-mono opacity-60 mt-1">
+                    <span>HP: {p.hp} / {p.maxHp}</span>
+                    <span>XP: {p.xp} / {p.nextXp}</span>
+                  </div>
+                </div>
+                {idx === activePokemonIndex ? (
+                  <div className="px-3 py-1 bg-purple-500 text-black font-black text-[10px] rounded uppercase">当前 (ACTIVE)</div>
+                ) : (
+                  <button 
+                    onClick={() => switchPokemon(idx)}
+                    disabled={p.hp <= 0 || turn !== 'PLAYER' || isAnimating}
+                    className="px-3 py-1 bg-purple-500/20 text-purple-400 border border-purple-500/50 font-black text-[10px] rounded hover:bg-purple-500 hover:text-black disabled:opacity-50 transition-all uppercase"
+                  >
+                    切换 (SWAP)
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 text-[10px] font-mono opacity-40 text-center uppercase">切换终端消耗 1 点算力 (COSTS 1 ENERGY)</div>
+        </motion.div>
+      </div>
+    );
+  };
+
+  const startRun = () => {
+    setFloor(1);
+    setMap(generateMap(5));
+    setPhase('MAP');
+    setCurrentNodeId(null);
+  };
+
+  const renderBattle = () => {
+    if (!player || !enemy) return null;
+    
+    return (
+      <div 
+        ref={containerRef}
+        className={`h-full w-full bg-[#05050a] flex flex-col text-white relative overflow-hidden ${isGlitching ? 'animate-pulse' : ''}`}
+        style={{ 
+          transform: isShaking ? `translate(${(Math.random()-0.5)*isShaking}px, ${(Math.random()-0.5)*isShaking}px)` : 'none'
+        }}
+      >
+          {/* Scanline Effect */}
+          <div className="absolute inset-0 pointer-events-none z-50 opacity-[0.05] bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%]" />
+          
+          {/* Modals */}
+          {showBackpack && renderBackpack()}
+          {showPartySwitch && renderPartySwitch()}
+          
+          {renderInventory()}
+          {renderTasks()}
+          {/* Background Grid */}
+          <div className="absolute inset-0 opacity-10 pointer-events-none bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:40px_40px]" />
+
+          {/* Floating Texts */}
+          <AnimatePresence>
+            {floatingTexts.map(t => (
+              <motion.div
+                key={t.id}
+                initial={{ opacity: 1, y: t.y, x: t.x }}
+                animate={{ opacity: 0, y: t.y - 100 }}
+                className="absolute left-1/2 top-1/2 z-[100] font-black text-3xl italic pointer-events-none"
+                style={{ color: t.color, textShadow: '0 0 10px rgba(0,0,0,0.5)' }}
+              >
+                {t.text}
+              </motion.div>
+            ))}
           </AnimatePresence>
 
-          {/* Enemy Sprite */}
-          <div className="relative mb-24">
-            <IntentDisplay intent={enemy?.intent} />
-            <motion.img 
-              animate={activeVfx?.target === 'ENEMY' ? { x: [0, -10, 10, -10, 0], filter: ['brightness(1)', 'brightness(3)', 'brightness(1)'] } : {}}
-              src={enemy?.img} 
-              className="w-48 h-48 object-contain drop-shadow-[0_0_50px_rgba(255,0,0,0.2)]" 
-            />
-          </div>
-
-          {/* Player Sprite */}
-          <div className="relative">
-            <motion.img 
-              animate={activeVfx?.target === 'PLAYER' ? { x: [0, -10, 10, -10, 0], filter: ['brightness(1)', 'brightness(3)', 'brightness(1)'] } : {}}
-              src={player?.img} 
-              className="w-48 h-48 object-contain drop-shadow-[0_0_50px_rgba(0,255,255,0.2)]" 
-            />
-          </div>
-        </div>
-
-        {/* Bottom Bar: Player */}
-        <div className="p-6 bg-gradient-to-t from-black to-transparent relative z-20">
-          <div className="max-w-6xl mx-auto flex flex-col gap-4">
-            <div className="flex justify-between items-end">
-              <div className="flex flex-col gap-2 w-64">
-                <div className="flex justify-between items-end">
-                  <span className="text-xl font-black italic" style={{ color: player?.color }}>{player?.name}</span>
-                  <span className="text-[10px] font-mono opacity-60 uppercase tracking-widest">系统完整度 (INTEGRITY)</span>
+          {/* Top Bar: Enemy */}
+          <div className="p-6 flex justify-between items-start relative z-20">
+            <div className="flex flex-col gap-2 w-64">
+              <div className="flex justify-between items-end">
+                <span className="text-xs font-mono opacity-60 uppercase tracking-widest">敌方协议 (ENEMY PROTOCOL)</span>
+                <span className="text-xl font-black italic" style={{ color: enemy?.color }}>{enemy?.name}</span>
+              </div>
+              <div className="h-4 bg-white/5 rounded-full overflow-hidden border border-white/10 relative shadow-[inset_0_0_10px_rgba(0,0,0,0.5)]">
+                <motion.div 
+                  animate={{ width: `${(enemy!.hp / enemy!.maxHp) * 100}%` }}
+                  className="h-full bg-gradient-to-r from-red-600 via-pink-500 to-red-600 bg-[length:200%_100%] animate-shimmer"
+                />
+                <div className="absolute inset-0 flex items-center justify-center text-[10px] font-black drop-shadow-md">
+                  {enemy?.hp} / {enemy?.maxHp}
                 </div>
-                <div className="h-4 bg-white/5 rounded-full overflow-hidden border border-white/10 relative">
-                  <motion.div 
-                    animate={{ width: `${(player!.hp / player!.maxHp) * 100}%` }}
-                    className="h-full bg-gradient-to-r from-cyan-500 to-blue-600"
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center text-[10px] font-black">
-                    {player?.hp} / {player?.maxHp}
+              </div>
+              <div className="flex gap-2">
+                {enemy?.shield! > 0 && (
+                  <div className="bg-blue-600 px-2 py-0.5 rounded text-[10px] font-black flex items-center gap-1">
+                    <Shield className="w-3 h-3" /> {enemy?.shield}
                   </div>
-                </div>
-                <div className="flex gap-2">
-                  {player?.shield! > 0 && (
-                    <div className="bg-blue-600 px-2 py-0.5 rounded text-[10px] font-black flex items-center gap-1">
-                      <Shield className="w-3 h-3" /> {player?.shield}
+                )}
+                {enemy?.statusEffects.map((s, i) => <StatusIcon key={i} effect={s} />)}
+              </div>
+            </div>
+
+            <div className="flex flex-col items-end gap-2">
+               <div className="flex items-center gap-2">
+                 <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${turn === 'PLAYER' ? 'border-cyan-400 text-cyan-400 bg-cyan-950/40 animate-pulse' : 'border-red-400 text-red-400 bg-red-950/40'}`}>
+                   {turn === 'PLAYER' ? '玩家回合 (PLAYER TURN)' : '敌方回合 (ENEMY TURN)'}
+                 </div>
+                 <div className="text-[10px] font-mono opacity-40 uppercase">System Time: {new Date().toLocaleTimeString()}</div>
+               </div>
+               <div className="flex gap-2 mb-2">
+                  {relics.map(r => (
+                    <div key={r.id} className="w-8 h-8 rounded border border-cyan-400/30 bg-cyan-950/20 flex items-center justify-center group relative cursor-help">
+                      <Database className="w-4 h-4 text-cyan-400" />
+                      <div className="absolute top-full right-0 mt-2 w-48 p-2 bg-black/90 border border-cyan-400 text-[10px] hidden group-hover:block z-50">
+                        <div className="font-black text-cyan-400 uppercase mb-1">{r.name}</div>
+                        <div className="opacity-70">{r.desc}</div>
+                      </div>
                     </div>
-                  )}
+                  ))}
+               </div>
+               <div className="flex gap-4">
+                  <div className="text-right">
+                     <div className="text-[8px] opacity-40 uppercase">回收站 (RECYCLE)</div>
+                     <div className="text-xl font-black italic text-pink-500">{discard.length}</div>
+                  </div>
+                  <div className="text-right">
+                     <div className="text-[8px] opacity-40 uppercase">背包系统 (BACKPACK)</div>
+                     <div className="text-xl font-black italic text-cyan-500">{deck.length}</div>
+                  </div>
+               </div>
+            </div>
+          </div>
+
+          {/* Battle Arena */}
+          <div className="flex-1 flex items-center justify-around relative px-12">
+            {/* Player Character */}
+            <div className="relative flex flex-col items-center">
+              <AnimatePresence>
+                {playerDialogue && <SpeechBubble text={playerDialogue} side="left" />}
+              </AnimatePresence>
+              <motion.div
+                animate={
+                  playerAnimation === 'attack' ? { x: [0, 150, 0], scale: [1, 1.2, 1] } :
+                  playerAnimation === 'hit' ? { x: [-5, 5, -5, 5, 0], filter: ['brightness(1)', 'brightness(2)', 'brightness(1)'] } :
+                  playerAnimation === 'skill' ? { y: [-10, 0], scale: [1, 1.1, 1], filter: ['hue-rotate(0deg)', 'hue-rotate(180deg)', 'hue-rotate(0deg)'] } :
+                  { y: [0, -10, 0] }
+                }
+                transition={
+                  playerAnimation === 'idle' ? { duration: 3, repeat: Infinity, ease: "easeInOut" } :
+                  { duration: 0.5 }
+                }
+                className="relative"
+              >
+                <img 
+                  src={player?.img} 
+                  alt={player?.name} 
+                  className="w-64 h-64 object-contain drop-shadow-[0_0_50px_rgba(255,255,255,0.2)]" 
+                  referrerPolicy="no-referrer"
+                />
+                {activeVfx?.target === 'PLAYER' && (
+                  <motion.div 
+                    initial={{ scale: 0, opacity: 0, rotate: 0 }}
+                    animate={{ scale: [0, 2, 1.5], opacity: [0, 1, 0], rotate: [0, 90, 180] }}
+                    transition={{ duration: 0.6 }}
+                    className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                  >
+                    <div className={`vfx-${activeVfx.type}`} />
+                  </motion.div>
+                )}
+              </motion.div>
+              <div className="mt-4 flex flex-col items-center">
+                <span className="text-xl font-black italic uppercase tracking-tighter" style={{ color: player?.color }}>{player?.name}</span>
+                <div className="flex gap-1 mt-2">
                   {player?.statusEffects.map((s, i) => <StatusIcon key={i} effect={s} />)}
                 </div>
               </div>
+            </div>
 
-              {/* Energy Display */}
-              <div className="flex flex-col items-center">
-                <div className="text-[10px] font-mono opacity-60 uppercase mb-1">{TERMINOLOGY.ENERGY}</div>
-                <div className="flex gap-1">
-                  {Array.from({ length: player?.maxEnergy || 0 }).map((_, i) => (
-                    <div 
-                      key={i} 
-                      className={`w-4 h-8 skew-x-[-20deg] border-2 transition-all duration-500 ${i < player!.energy ? 'bg-cyan-500 border-cyan-400 shadow-[0_0_10px_#00ffff]' : 'bg-transparent border-white/10'}`} 
-                    />
-                  ))}
+            {/* VS Divider */}
+            <div className="text-6xl font-black italic opacity-10 tracking-tighter select-none">VS</div>
+
+            {/* Enemy Character */}
+            <div className="relative flex flex-col items-center">
+              <AnimatePresence>
+                {enemyDialogue && <SpeechBubble text={enemyDialogue} side="right" />}
+              </AnimatePresence>
+              <IntentDisplay intent={enemy?.intent} />
+              <motion.div
+                animate={
+                  enemyAnimation === 'attack' ? { x: [0, -150, 0], scale: [1, 1.2, 1] } :
+                  enemyAnimation === 'hit' ? { x: [5, -5, 5, -5, 0], filter: ['brightness(1)', 'brightness(2)', 'brightness(1)'] } :
+                  enemyAnimation === 'skill' ? { y: [-10, 0], scale: [1, 1.1, 1], filter: ['hue-rotate(0deg)', 'hue-rotate(-180deg)', 'hue-rotate(0deg)'] } :
+                  { y: [0, -10, 0] }
+                }
+                transition={
+                  enemyAnimation === 'idle' ? { duration: 3, repeat: Infinity, ease: "easeInOut", delay: 0.5 } :
+                  { duration: 0.5 }
+                }
+                className="relative"
+              >
+                <img 
+                  src={enemy?.img} 
+                  alt={enemy?.name} 
+                  className="w-64 h-64 object-contain drop-shadow-[0_0_50px_rgba(255,0,0,0.2)]" 
+                  referrerPolicy="no-referrer"
+                />
+                {activeVfx?.target === 'ENEMY' && (
+                  <motion.div 
+                    initial={{ scale: 0, opacity: 0, rotate: 0 }}
+                    animate={{ scale: [0, 2, 1.5], opacity: [0, 1, 0], rotate: [0, 90, 180] }}
+                    transition={{ duration: 0.6 }}
+                    className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                  >
+                    <div className={`vfx-${activeVfx.type}`} />
+                  </motion.div>
+                )}
+              </motion.div>
+              <div className="mt-4 flex flex-col items-center">
+                <span className="text-xl font-black italic uppercase tracking-tighter" style={{ color: enemy?.color }}>{enemy?.name}</span>
+                <div className="flex gap-1 mt-2">
+                  {enemy?.statusEffects.map((s, i) => <StatusIcon key={i} effect={s} />)}
                 </div>
               </div>
-
-              <button 
-                onClick={endPlayerTurn}
-                disabled={turn !== 'PLAYER' || isAnimating}
-                className="px-8 py-3 bg-pink-600 border-2 border-pink-400 font-black italic uppercase tracking-tighter hover:bg-pink-500 disabled:opacity-30 disabled:grayscale transition-all shadow-[0_0_20px_rgba(255,0,255,0.3)]"
-              >
-                {TERMINOLOGY.END_TURN}
-              </button>
-            </div>
-
-            {/* Hand */}
-            <div className="flex justify-center gap-2 h-64 items-end pb-4">
-              <AnimatePresence>
-                {hand.map((card, i) => renderCard(card, i))}
-              </AnimatePresence>
             </div>
           </div>
-        </div>
+
+          {/* Bottom Bar: Player */}
+          <div className="p-6 bg-gradient-to-t from-black to-transparent relative z-20">
+            <div className="max-w-6xl mx-auto flex flex-col gap-4">
+              <div className="flex justify-between items-end">
+                <div className="flex flex-col gap-2 w-64">
+                  <div className="flex justify-between items-end">
+                    <span className="text-xl font-black italic" style={{ color: player?.color }}>{player?.name}</span>
+                    <span className="text-[10px] font-mono opacity-60 uppercase tracking-widest">系统完整度 (INTEGRITY)</span>
+                  </div>
+                  <div className="h-4 bg-white/5 rounded-full overflow-hidden border border-white/10 relative shadow-[inset_0_0_10px_rgba(0,0,0,0.5)]">
+                    <motion.div 
+                      animate={{ width: `${(player!.hp / player!.maxHp) * 100}%` }}
+                      className="h-full bg-gradient-to-r from-cyan-500 via-blue-400 to-cyan-500 bg-[length:200%_100%] animate-shimmer"
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center text-[10px] font-black drop-shadow-md">
+                      {player?.hp} / {player?.maxHp}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    {player?.shield! > 0 && (
+                      <div className="bg-blue-600 px-2 py-0.5 rounded text-[10px] font-black flex items-center gap-1">
+                        <Shield className="w-3 h-3" /> {player?.shield}
+                      </div>
+                    )}
+                    {player?.statusEffects.map((s, i) => <StatusIcon key={i} effect={s} />)}
+                  </div>
+                  <div className="flex gap-2 mt-2">
+                    <button 
+                      onClick={() => setShowBackpack(true)}
+                      className="flex-1 py-1 bg-cyan-900/40 border border-cyan-500/50 rounded text-[10px] font-black uppercase hover:bg-cyan-500 hover:text-black transition-all flex items-center justify-center gap-1"
+                    >
+                      <Briefcase className="w-3 h-3" /> 背包 (ITEM)
+                    </button>
+                    <button 
+                      onClick={() => setShowPartySwitch(true)}
+                      className="flex-1 py-1 bg-purple-900/40 border border-purple-500/50 rounded text-[10px] font-black uppercase hover:bg-purple-500 hover:text-black transition-all flex items-center justify-center gap-1"
+                    >
+                      <RefreshCw className="w-3 h-3" /> 切换 (SWITCH)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Energy Display */}
+                <div className="flex flex-col items-center">
+                  <div className="text-[10px] font-mono opacity-60 uppercase mb-1 flex items-center gap-2">
+                    <Zap className="w-3 h-3 text-cyan-400" />
+                    {TERMINOLOGY.ENERGY}
+                  </div>
+                  <div className="flex gap-1.5">
+                    {Array.from({ length: player?.maxEnergy || 0 }).map((_, i) => (
+                      <motion.div 
+                        key={i} 
+                        initial={false}
+                        animate={{ 
+                          scale: i < player!.energy ? [1, 1.1, 1] : 1,
+                          opacity: i < player!.energy ? 1 : 0.2
+                        }}
+                        className={`w-4 h-10 skew-x-[-20deg] border-2 transition-all duration-500 ${i < player!.energy ? 'bg-cyan-500 border-cyan-400 shadow-[0_0_15px_#00ffff]' : 'bg-transparent border-white/10'}`} 
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <button 
+                  onClick={endPlayerTurn}
+                  disabled={turn !== 'PLAYER' || isAnimating}
+                  className="px-8 py-3 bg-pink-600 border-2 border-pink-400 font-black italic uppercase tracking-tighter hover:bg-pink-500 disabled:opacity-30 disabled:grayscale transition-all shadow-[0_0_20px_rgba(255,0,255,0.3)]"
+                >
+                  {TERMINOLOGY.END_TURN}
+                </button>
+              </div>
+
+              {/* Hand */}
+              <div className="flex justify-center gap-2 h-64 items-end pb-4">
+                <AnimatePresence>
+                  {hand.map((card, i) => renderCard(card, i))}
+                </AnimatePresence>
+              </div>
+            </div>
+          </div>
       </div>
     );
+  };
+
+  const handleGachaSpin = () => {
+    if (gachaTickets < 1 || isGachaSpinning) return;
+    
+    setIsGachaSpinning(true);
+    setGachaTickets(prev => prev - 1);
+    setGachaResult(null);
+
+    setTimeout(() => {
+      const luckBonus = purchasedUpgrades.includes('gacha_luck') ? 0.1 : 0;
+      const roll = Math.random() + luckBonus;
+      let result: any = null;
+
+      if (roll < 0.6) {
+        // Common: Consumables
+        const pool = CONSUMABLES_DB.filter(c => c.price <= 100);
+        const item = pool[Math.floor(Math.random() * pool.length)];
+        result = { type: 'ITEM', data: item };
+        setInventory(prev => [...prev, item]);
+      } else if (roll < 0.85) {
+        // Uncommon: Better Consumables or Gold
+        const roll2 = Math.random();
+        if (roll2 < 0.5) {
+          const pool = CONSUMABLES_DB.filter(c => c.price > 100 && c.price <= 250);
+          const item = pool[Math.floor(Math.random() * pool.length)];
+          result = { type: 'ITEM', data: item };
+          setInventory(prev => [...prev, item]);
+        } else {
+          const goldAmt = 100 + Math.floor(Math.random() * 100);
+          result = { type: 'GOLD', data: goldAmt };
+          setGold(prev => prev + goldAmt);
+        }
+      } else if (roll < 0.98) {
+        // Rare: Relics
+        const pool = RELICS_DB.filter(r => !relics.find(pr => pr.id === r.id));
+        if (pool.length > 0) {
+          const relic = pool[Math.floor(Math.random() * pool.length)];
+          result = { type: 'RELIC', data: relic };
+          setRelics(prev => [...prev, relic]);
+        } else {
+          const goldAmt = 300;
+          result = { type: 'GOLD', data: goldAmt };
+          setGold(prev => prev + goldAmt);
+        }
+      } else {
+        // Jackpot: Rare Cards or Big Gold
+        const roll3 = Math.random();
+        if (roll3 < 0.3) {
+          const pool = CARDS_DB.filter(c => c.rarity === 'RARE');
+          const card = pool[Math.floor(Math.random() * pool.length)];
+          result = { type: 'CARD', data: card };
+          setPermanentDeck(prev => [...prev, { ...card, uid: generateUUID(), isEquipped: true }]);
+        } else {
+          const goldAmt = 500;
+          result = { type: 'GOLD', data: goldAmt };
+          setGold(prev => prev + goldAmt);
+        }
+      }
+
+      setGachaResult(result);
+      setIsGachaSpinning(false);
+    }, 2000);
+  };
+
+  const renderGacha = () => (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl">
+      <motion.div
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="bg-[#0a0a15] border-2 border-pink-500/30 rounded-3xl w-full max-w-xl overflow-hidden shadow-[0_0_100px_rgba(236,72,153,0.2)]"
+      >
+        <div className="p-6 border-b border-white/10 flex justify-between items-center bg-pink-950/20">
+          <div className="flex items-center gap-3">
+            <Gift className="w-8 h-8 text-pink-400" />
+            <h3 className="text-3xl font-black italic text-pink-400 uppercase tracking-tighter">协议抽奖 (GACHA TERMINAL)</h3>
+          </div>
+          <button onClick={() => setShowGacha(false)} className="text-white/40 hover:text-white transition-colors">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        <div className="p-12 flex flex-col items-center justify-center min-h-[400px]">
+          <div className="relative mb-12">
+            <motion.div
+              animate={isGachaSpinning ? { rotate: 360 } : { rotate: 0 }}
+              transition={isGachaSpinning ? { repeat: Infinity, duration: 0.5, ease: "linear" } : {}}
+              className="w-48 h-48 rounded-full border-8 border-dashed border-pink-500/30 flex items-center justify-center"
+            >
+              <Disc className={`w-24 h-24 ${isGachaSpinning ? 'text-pink-400 animate-pulse' : 'text-white/20'}`} />
+            </motion.div>
+            
+            <AnimatePresence>
+              {gachaResult && (
+                <motion.div
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0, opacity: 0 }}
+                  className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 rounded-full backdrop-blur-sm border-2 border-pink-500"
+                >
+                  <div className="text-pink-400 font-black text-xs uppercase mb-1">获得奖励!</div>
+                  <div className="text-xl font-black text-white text-center px-4">
+                    {gachaResult.type === 'ITEM' && gachaResult.data.name}
+                    {gachaResult.type === 'GOLD' && `+${gachaResult.data} 信用点`}
+                    {gachaResult.type === 'RELIC' && gachaResult.data.name}
+                    {gachaResult.type === 'CARD' && `稀有协议: ${gachaResult.data.name}`}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <div className="text-center mb-8">
+            <p className="text-white/40 font-mono text-xs uppercase tracking-widest mb-2">可用抽奖机会 (AVAILABLE TICKETS)</p>
+            <div className="text-5xl font-black text-white italic">{gachaTickets}</div>
+          </div>
+
+          <button
+            onClick={handleGachaSpin}
+            disabled={gachaTickets < 1 || isGachaSpinning}
+            className={`w-full py-6 rounded-2xl font-black text-xl uppercase tracking-widest transition-all ${
+              gachaTickets < 1 || isGachaSpinning
+                ? 'bg-white/5 text-white/20 border border-white/10 cursor-not-allowed'
+                : 'bg-pink-500 text-black hover:bg-pink-400 shadow-[0_0_30px_rgba(236,72,153,0.4)]'
+            }`}
+          >
+            {isGachaSpinning ? '正在解析协议...' : '启动抽奖 (SPIN)'}
+          </button>
+          
+          <p className="mt-6 text-[10px] text-white/30 font-mono uppercase text-center">
+            击败病毒程序可获得抽奖机会 // 奖励包含稀有道具、信用点与遗物
+          </p>
+        </div>
+      </motion.div>
+    </div>
+  );
+
+  const renderDiagnostic = () => (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+      <motion.div
+        initial={{ scale: 0.9, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        className="bg-[#0a0a15] border-2 border-emerald-500/30 rounded-3xl w-full max-w-2xl overflow-hidden shadow-[0_0_50px_rgba(16,185,129,0.1)]"
+      >
+        <div className="p-6 border-b border-white/10 flex justify-between items-center bg-emerald-950/20">
+          <h3 className="text-3xl font-black italic text-emerald-400 uppercase tracking-tighter">系统自检 (DIAGNOSTIC)</h3>
+          <button onClick={() => setShowDiagnostic(false)} className="text-white/40 hover:text-white transition-colors">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+        
+        <div className="p-8">
+          {diagnosticStep === 'CHOICE' && (
+            <div className="grid grid-cols-2 gap-6">
+              <button 
+                onClick={() => handleDiagnostic('REPAIR')}
+                className="p-6 border-2 border-white/10 rounded-2xl bg-white/5 hover:border-emerald-500/50 hover:bg-emerald-500/10 transition-all group text-center"
+              >
+                <HeartPulse className="w-12 h-12 text-emerald-400 mx-auto mb-4 group-hover:animate-pulse" />
+                <h4 className="font-black italic text-xl uppercase">全面修复</h4>
+                <p className="text-xs text-white/40 mt-2">恢复所有系统完整度</p>
+                <div className="mt-4 text-yellow-400 font-mono">COST: 50 CREDITS</div>
+              </button>
+              
+              <button 
+                onClick={() => handleDiagnostic('REMOVE')}
+                className="p-6 border-2 border-white/10 rounded-2xl bg-white/5 hover:border-red-500/50 hover:bg-red-500/10 transition-all group text-center"
+              >
+                <Trash2 className="w-12 h-12 text-red-400 mx-auto mb-4 group-hover:rotate-12 transition-transform" />
+                <h4 className="font-black italic text-xl uppercase">协议优化</h4>
+                <p className="text-xs text-white/40 mt-2">从背包中永久移除一个协议</p>
+                <div className="mt-4 text-yellow-400 font-mono">COST: 75 CREDITS</div>
+              </button>
+            </div>
+          )}
+
+          {diagnosticStep === 'REMOVE' && (
+            <div className="space-y-4">
+              <p className="text-center text-white/60 font-mono text-sm mb-6">选择要移除的协议 (SELECT PROTOCOL TO PURGE)</p>
+              <div className="grid grid-cols-2 gap-4 max-h-[40vh] overflow-y-auto custom-scrollbar p-2">
+                {permanentDeck.map((card, i) => (
+                  <div 
+                    key={card.uid} 
+                    onClick={() => {
+                      setPermanentDeck(prev => prev.filter(c => c.uid !== card.uid));
+                      setGold(prev => prev - 75);
+                      addFloatingText('协议已净化', '#ef4444', 'PLAYER');
+                      setShowDiagnostic(false);
+                    }}
+                    className="cursor-pointer transform hover:scale-105 transition-transform"
+                  >
+                    {renderCard(card, i, { isStatic: true })}
+                  </div>
+                ))}
+              </div>
+              <button 
+                onClick={() => setDiagnosticStep('CHOICE')}
+                className="w-full py-3 border border-white/10 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-white/5 transition-all"
+              >
+                返回
+              </button>
+            </div>
+          )}
+        </div>
+      </motion.div>
+    </div>
+  );
+
+  const renderEvolution = () => (
+    <AnimatePresence>
+      {showEvolution && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/90 backdrop-blur-xl z-[100] flex items-center justify-center p-8"
+        >
+          <motion.div
+            initial={{ scale: 0.9, y: 20 }}
+            animate={{ scale: 1, y: 0 }}
+            className="bg-[#0a0a15] border-2 border-emerald-500/30 rounded-3xl w-full max-w-4xl overflow-hidden shadow-[0_0_50px_rgba(16,185,129,0.1)]"
+          >
+            <div className="p-6 border-b border-white/10 flex justify-between items-center bg-emerald-950/20">
+              <div className="flex items-center gap-3">
+                <Activity className="w-6 h-6 text-emerald-400" />
+                <h2 className="text-2xl font-black italic tracking-tighter uppercase">进化实验室 (EVOLUTION LAB)</h2>
+              </div>
+              <button onClick={() => setShowEvolution(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+              {party.map((p, i) => {
+                const canEvolve = p.evolutionLevel && p.level >= p.evolutionLevel;
+                const nextForm = p.evolvesTo ? POKEMON_DB.find(dbP => dbP.id === p.evolvesTo) : null;
+                
+                return (
+                  <div key={i} className={`p-6 rounded-2xl border-2 transition-all ${canEvolve ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-white/5 bg-white/5 opacity-60'}`}>
+                    <div className="flex items-center gap-4 mb-4">
+                      <img src={p.img} alt={p.name} className="w-16 h-16 object-contain" />
+                      <div>
+                        <div className="text-lg font-black italic">{p.name}</div>
+                        <div className="text-xs font-mono text-emerald-400">Lv.{p.level} / {p.evolutionLevel ? `进化需要 Lv.${p.evolutionLevel}` : '已达最高级'}</div>
+                      </div>
+                    </div>
+                    
+                    {canEvolve && nextForm && (
+                      <div className="mt-4 pt-4 border-t border-white/10">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="text-xs uppercase opacity-60">进化为:</div>
+                          <div className="text-sm font-black text-emerald-400">{nextForm.name}</div>
+                        </div>
+                        <button 
+                          onClick={() => handleEvolve(i)}
+                          className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-black italic rounded-xl transition-all shadow-[0_0_20px_rgba(16,185,129,0.4)]"
+                        >
+                          执行进化协议
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
+  const renderContent = () => {
+    return (
+      <>
+        {showTasks && renderTasks()}
+        {showDiagnostic && renderDiagnostic()}
+        {showGacha && renderGacha()}
+        {showEvolution && renderEvolution()}
+        {(() => {
+          if (phase === 'INTRO') return <IntroSequence onComplete={() => setPhase('START')} />;
+          if (phase === 'PVP_LOBBY') return renderPVPLobby();
+          if (phase === 'PVP_BATTLE') return renderPVPBattle();
+          if (phase === 'START') {
+      return (
+        <div className="h-full w-full bg-[#05050a] flex flex-col items-center justify-center p-6 text-white overflow-hidden relative">
+          {renderTasks()}
+          <div className="absolute inset-0 opacity-20 pointer-events-none">
+            <div className="w-full h-full bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%]" />
+          </div>
+          <motion.h1 
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="text-7xl font-black italic tracking-tighter mb-2 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-white to-pink-500 drop-shadow-[0_0_20px_rgba(0,255,255,0.5)]"
+          >
+            赛博宝可梦
+          </motion.h1>
+          <p className="font-mono text-xs tracking-[0.5em] text-cyan-400/60 uppercase mb-12">CYBERPOKE: 战术指令集 (Tactical Protocol)</p>
+          <button 
+            onClick={() => setPhase('SELECT')}
+            className="px-12 py-4 bg-transparent border-2 border-cyan-500 text-cyan-400 font-black uppercase tracking-widest hover:bg-cyan-500 hover:text-black transition-all shadow-[0_0_30px_rgba(0,255,255,0.2)]"
+          >
+            初始化链接
+          </button>
+        </div>
+      );
+    }
+    if (phase === 'SELECT') {
+      return (
+        <div className="h-full w-full bg-[#05050a] p-8 text-white overflow-y-auto no-scrollbar">
+          {renderTasks()}
+          <h2 className="text-4xl font-black italic mb-12 text-center tracking-tighter">选择你的作战终端</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            {POKEMON_DB.map(p => (
+              <motion.div
+                key={p.id}
+                whileHover={{ scale: 1.05, y: -10 }}
+                onClick={() => initGame(p.id)}
+                className={`relative p-6 rounded-2xl border-2 border-white/10 cursor-pointer overflow-hidden group bg-gradient-to-b ${p.bgGradient}`}
+              >
+                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-30 transition-opacity">
+                  <Database className="w-24 h-24" />
+                </div>
+                <img src={p.img} alt={p.name} className="w-48 h-48 object-contain mx-auto mb-6 drop-shadow-[0_0_30px_rgba(255,255,255,0.2)]" referrerPolicy="no-referrer" />
+                <h3 className="text-2xl font-black italic uppercase mb-2" style={{ color: p.color }}>{p.name}</h3>
+                <div className="space-y-1 text-xs font-mono opacity-60">
+                  <p>初始系统完整度: {p.maxHp}</p>
+                  <p>初始核心算力: {p.maxEnergy}</p>
+                  <p>初始等级: {p.level}</p>
+                </div>
+                <div className="mt-6 flex items-center text-cyan-400 font-black text-sm group-hover:translate-x-2 transition-transform">
+                  建立链接 <ChevronRight className="w-4 h-4 ml-1" />
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    if (phase === 'HUB') return (
+      <>
+        {renderInventory()}
+        {renderTasks()}
+        {renderHub()}
+      </>
+    );
+    if (phase === 'MAP') return (
+      <div className="h-full w-full bg-[#05050a] flex flex-col">
+        {renderInventory()}
+        {renderTasks()}
+        <div className="p-4 bg-black/40 border-b border-white/10 flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <div className="text-xs font-mono opacity-50 uppercase tracking-widest">当前进度: FLOOR {floor}</div>
+            <div className="text-xs font-mono text-yellow-400">CREDITS: {gold}</div>
+          </div>
+          <button 
+            onClick={() => setPhase('HUB')}
+            className="px-4 py-1 border border-red-500/50 text-red-400 text-[10px] font-black uppercase hover:bg-red-500 hover:text-black transition-all"
+          >
+            终止任务 (EXIT)
+          </button>
+        </div>
+        {renderMap()}
+      </div>
+    );
+    if (phase === 'REWARD') {
+      return (
+        <div className="h-full w-full bg-[#05050a] p-8 text-white flex flex-col items-center justify-center">
+          <motion.div 
+            initial={{ y: -50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="mb-12 text-center"
+          >
+            <h2 className="text-6xl font-black italic tracking-tighter text-cyan-400 mb-2 glitch-text">数据提取成功 (DATA EXTRACTED)</h2>
+            <p className="font-mono text-xs opacity-60 uppercase tracking-[0.4em]">选择一个协议注入你的背包系统</p>
+          </motion.div>
+
+          <div className="flex gap-6 mb-12">
+            {rewards.map((card, i) => (
+              <div key={card.uid} onClick={() => {
+                setPermanentDeck(prev => [...prev, { ...card, isEquipped: true }]);
+                setFloor(prev => prev + 1);
+                setPhase('MAP');
+              }}>
+                {renderCard(card, i, { isStatic: true })}
+              </div>
+            ))}
+          </div>
+
+          <button 
+            onClick={() => {
+              setFloor(prev => prev + 1);
+              setPhase('MAP');
+            }}
+            className="px-12 py-4 border-2 border-white/20 text-sm font-black uppercase tracking-[0.3em] hover:bg-white/10 transition-all"
+          >
+            跳过注入
+          </button>
+        </div>
+      );
+    }
+    if (phase === 'SHOP') return (
+      <>
+        {renderInventory()}
+        {renderTasks()}
+        {renderShop()}
+      </>
+    );
+    if (phase === 'DECK_VIEW') return (
+      <>
+        {renderInventory()}
+        {renderTasks()}
+        {renderDeckView()}
+      </>
+    );
+    if (phase === 'REST') return (
+      <>
+        {renderInventory()}
+        {renderTasks()}
+        {renderRest()}
+      </>
+    );
+    if (phase === 'GAMEOVER') return renderGameOver();
+    if (phase === 'VICTORY') return renderVictory();
+    if (phase === 'ENDLESS') return renderEndless();
+
+    return renderBattle();
+  })()}
+</>
+);
+};
+
+  return (
+    <div className="h-screen w-screen bg-black overflow-hidden select-none">
+      {renderContent()}
+    </div>
+  );
 }

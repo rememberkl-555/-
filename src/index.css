@@ -204,4 +204,102 @@
     0% { transform: scale(0) rotate(0); opacity: 1; }
     100% { transform: scale(2.5) rotate(180deg); opacity: 0; }
   }
+
+  .vfx-explosion {
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    background: radial-gradient(circle, #ff0000, #ff8800, transparent 70%);
+    border-radius: 50%;
+    filter: blur(10px);
+    animation: explosion-vfx 0.5s ease-out forwards;
+    box-shadow: 0 0 60px #ff4400;
+  }
+
+  @keyframes explosion-vfx {
+    0% { transform: scale(0.1); opacity: 1; }
+    50% { opacity: 1; }
+    100% { transform: scale(5); opacity: 0; }
+  }
+
+  .vfx-freeze {
+    position: absolute;
+    width: 100px;
+    height: 100px;
+    background: radial-gradient(circle, #e0f2fe, #7dd3fc, transparent 70%);
+    border-radius: 50%;
+    filter: blur(5px);
+    animation: freeze-vfx 0.8s ease-out forwards;
+    box-shadow: 0 0 30px #0ea5e9;
+  }
+
+  @keyframes freeze-vfx {
+    0% { transform: scale(0); opacity: 0; }
+    20% { opacity: 1; }
+    100% { transform: scale(2); opacity: 0; }
+  }
+
+  .vfx-poison {
+    position: absolute;
+    width: 80px;
+    height: 80px;
+    background: radial-gradient(circle, #4ade80, #166534, transparent 70%);
+    border-radius: 50%;
+    filter: blur(8px);
+    animation: poison-vfx 1s ease-in-out infinite alternate;
+  }
+
+  @keyframes poison-vfx {
+    0% { transform: scale(0.8); opacity: 0.5; }
+    100% { transform: scale(1.5); opacity: 0.8; }
+  }
+
+  .vfx-glitch {
+    position: absolute;
+    width: 100px;
+    height: 100px;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(5px);
+    border: 2px solid white;
+    animation: vfx-glitch 0.4s steps(2) infinite;
+  }
+
+  @keyframes vfx-glitch {
+    0% { transform: translate(0) skew(0); filter: hue-rotate(0); }
+    25% { transform: translate(-10px, 5px) skew(10deg); filter: hue-rotate(90deg); }
+    50% { transform: translate(10px, -5px) skew(-10deg); filter: hue-rotate(180deg); }
+    75% { transform: translate(-5px, -10px) skew(5deg); filter: hue-rotate(270deg); }
+    100% { transform: translate(0) skew(0); filter: hue-rotate(360deg); }
+  }
+
+  /* Custom Scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(0, 255, 255, 0.2);
+    border-radius: 10px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 255, 255, 0.4);
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+  .animate-shimmer {
+    animation: shimmer 3s linear infinite;
+  }
 }

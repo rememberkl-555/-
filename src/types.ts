@@ -2,8 +2,8 @@ import { ReactNode } from 'react';
 
 export type CardType = 'ATTACK' | 'SKILL' | 'POWER' | 'STATUS' | 'CURSE';
 export type Rarity = 'STARTER' | 'COMMON' | 'UNCOMMON' | 'RARE' | 'SPECIAL';
-export type StatusType = 'VULNERABLE' | 'WEAK' | 'POISON' | 'STRENGTH' | 'DEXTERITY' | 'LOCKED' | 'CHARGE' | 'OVERLOAD' | 'OVERWRITE';
-export type IntentType = 'ATTACK' | 'DEFEND' | 'BUFF' | 'DEBUFF' | 'UNKNOWN' | 'CURSE';
+export type StatusType = 'VULNERABLE' | 'WEAK' | 'POISON' | 'STRENGTH' | 'DEXTERITY' | 'LOCKED' | 'CHARGE' | 'OVERLOAD' | 'OVERWRITE' | 'BURN' | 'FREEZE' | 'COMBO';
+export type IntentType = 'ATTACK' | 'DEFEND' | 'BUFF' | 'DEBUFF' | 'UNKNOWN' | 'CURSE' | 'STUN';
 
 export interface StatusEffect {
   type: StatusType;
@@ -24,10 +24,12 @@ export interface Card {
   statusEffect?: StatusEffect;
   selfStatusEffect?: StatusEffect;
   desc: string;
-  vfx?: 'electric' | 'fire' | 'psychic' | 'physical' | 'rock' | 'beam' | 'slash' | 'glitch';
+  vfx?: 'electric' | 'fire' | 'psychic' | 'physical' | 'rock' | 'beam' | 'slash' | 'glitch' | 'explosion' | 'freeze' | 'poison';
   isExhaust?: boolean;
   isEthereal?: boolean; // Disappears if not played
   isInnate?: boolean; // Starts in hand
+  comboValue?: number; // Extra damage if combo is active
+  isEquipped?: boolean; // Whether the card is in the active combat deck
 }
 
 export interface Intent {
@@ -51,6 +53,11 @@ export interface EntityState {
   color: string;
   neonClass: string;
   bgGradient: string;
+  level: number;
+  xp: number;
+  nextXp: number;
+  evolutionLevel?: number;
+  evolvesTo?: string;
 }
 
 export interface Relic {
@@ -58,6 +65,38 @@ export interface Relic {
   name: string;
   desc: string;
   icon: string;
+  price?: number;
+}
+
+export interface Consumable {
+  id: string;
+  name: string;
+  desc: string;
+  icon: string;
+  price: number;
+  type: 'HEAL' | 'ENERGY' | 'STATUS' | 'DAMAGE' | 'DRAW';
+  statusType?: StatusType;
+  value: number;
+}
+
+export interface ShopUpgrade {
+  id: string;
+  name: string;
+  desc: string;
+  icon: string;
+  price: number;
+  effect: 'DISCOUNT' | 'REFRESH_SALE' | 'GACHA_LUCK' | 'RARE_CHANCE';
+}
+
+export interface Task {
+  id: string;
+  title: string;
+  desc: string;
+  reward: number;
+  type: 'DAILY_LOGIN' | 'BATTLE_WIN' | 'GOLD_SPENT';
+  progress: number;
+  target: number;
+  isClaimed: boolean;
 }
 
 export type NodeType = 'COMBAT' | 'ELITE' | 'SHOP' | 'REST' | 'BOSS' | 'UNKNOWN';
@@ -70,13 +109,43 @@ export interface MapNode {
   connectedTo: string[];
 }
 
+export interface EndlessState {
+  playerLineup: EntityState[];
+  enemyLineup: EntityState[];
+  activePlayerIndex: number;
+  activeEnemyIndex: number;
+  wave: number;
+}
+
+export type Phase = 'INTRO' | 'START' | 'HUB' | 'MAP' | 'BATTLE' | 'REWARD' | 'SHOP' | 'REST' | 'GAMEOVER' | 'VICTORY' | 'DECK_VIEW' | 'REWARD_TRANSITION' | 'ENDLESS' | 'PVP_LOBBY' | 'PVP_BATTLE';
+
+export interface PVPState {
+  roomId: string;
+  opponentId: string;
+  opponentName: string;
+  opponentPokemon: EntityState;
+  isMyTurn: boolean;
+  turnNumber: number;
+  opponentHandCount: number;
+  opponentShield: number;
+  opponentHp: number;
+  opponentMaxHp: number;
+  isAiOpponent?: boolean;
+}
+
 export interface GameState {
-  phase: 'START' | 'SELECT' | 'MAP' | 'BATTLE' | 'REWARD' | 'SHOP' | 'REST' | 'GAMEOVER';
+  phase: Phase;
   floor: number;
   relics: Relic[];
   gold: number;
   map: MapNode[];
   currentNodeId: string | null;
+}
+
+export interface CombatPiles {
+  hand: Card[];
+  deck: Card[];
+  discard: Card[];
 }
 
 export interface LogEntry {

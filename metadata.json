@@ -1,5 +1,5 @@
 {
   "name": "CyberPoke Card Battle",
-  "description": "A cyberpunk-themed vertical Pokémon card battle game with strategic deck-building elements.",
+  "description": "A cyberpunk-themed vertical Pokémon card battle game with strategic deck-building, a consumable backpack system, and multi-Pokémon party switching.",
   "requestFramePermissions": []
 }
