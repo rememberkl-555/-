@@ -27,5 +27,5 @@ jobs:
         with:
           context: .
           push: true
-          # 这里我帮你手动改成了一个规范的名字：my-app
+          # 这一行是关键！手动指定一个叫 my-app 的名字，不用那个破减号了
           tags: ghcr.io/rememberkl-555/my-app:latest
