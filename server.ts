@@ -15,6 +15,44 @@ async function startServer() {
 
   const PORT = 3000;
 
+  // API routes FIRST
+  app.get("/api/pokemon-image/:filename", async (req, res) => {
+    try {
+      const filename = req.params.filename;
+      // Fetch from a reliable source server-side
+      const url = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${filename}`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        return res.status(404).send('Not found');
+      }
+      const buffer = await response.arrayBuffer();
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+      res.send(Buffer.from(buffer));
+    } catch (e) {
+      console.error('Error proxying image:', e);
+      res.status(500).send('Error fetching image');
+    }
+  });
+
+  app.get("/api/item-image/:filename", async (req, res) => {
+    try {
+      const filename = req.params.filename;
+      const url = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/${filename}`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        return res.status(404).send('Not found');
+      }
+      const buffer = await response.arrayBuffer();
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+      res.send(Buffer.from(buffer));
+    } catch (e) {
+      console.error('Error proxying item image:', e);
+      res.status(500).send('Error fetching image');
+    }
+  });
+
   // Matchmaking queue
   let queue: { socketId: string; userData: any }[] = [];
   const rooms = new Map<string, Set<string>>();

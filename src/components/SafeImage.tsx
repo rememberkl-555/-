@@ -6,7 +6,7 @@ export const SafeImage = ({
   alt, 
   className, 
   cdnIndex = 0, 
-  pokemonId 
+  pokemonId // We keep this prop for backwards compatibility but ignore it for URL construction
 }: { 
   src?: string, 
   alt?: string, 
@@ -18,35 +18,55 @@ export const SafeImage = ({
   const [failed, setFailed] = useState(false);
   const [localCdnIndex, setLocalCdnIndex] = useState(cdnIndex);
   const attemptsRef = useRef(0);
-  const lastPokemonIdRef = useRef<string | number | undefined>(undefined);
+  const lastSrcRef = useRef<string | undefined>(undefined);
+
+  // A reliable base64 fallback image (a simple colored square/circle or text) to ensure it NEVER fails
+  const RELIABLE_FALLBACK = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23333' rx='20'/%3E%3Ctext x='50' y='50' font-family='monospace' font-size='14' fill='%23fff' text-anchor='middle' dominant-baseline='middle'%3E?%3C/text%3E%3C/svg%3E";
 
   useEffect(() => {
-    // Reset state if pokemonId changes
-    if (pokemonId !== lastPokemonIdRef.current) {
+    // Reset state if the original src changes
+    if (src !== lastSrcRef.current) {
       attemptsRef.current = 0;
       setFailed(false);
       setLocalCdnIndex(cdnIndex);
-      lastPokemonIdRef.current = pokemonId;
+      lastSrcRef.current = src;
     }
 
     if (failed) {
-      setCurrentSrc(FALLBACK_IMG);
+      setCurrentSrc(RELIABLE_FALLBACK);
       return;
     }
 
-    if (pokemonId !== undefined) {
-      setCurrentSrc(getPokemonImg(pokemonId, localCdnIndex));
+    if (src) {
+      // Extract the filename (e.g., "74.png" or "poke-ball.png") from the src
+      const match = src.match(/\/([^\/]+\.png)$/);
+      if (match && match[1]) {
+        const filename = match[1];
+        // If it's an official artwork, use the CDNS array
+        if (src.includes('official-artwork')) {
+          const baseUrl = CDNS[localCdnIndex] || CDNS[0];
+          setCurrentSrc(`${baseUrl}${filename}`);
+        } else if (src.includes('/items/')) {
+          // Proxy item images as well
+          setCurrentSrc(`/api/item-image/${filename}`);
+        } else {
+          // For other images, just use the original src
+          setCurrentSrc(src);
+        }
+      } else {
+        setCurrentSrc(src);
+      }
     } else {
-      setCurrentSrc(src);
+      setCurrentSrc(RELIABLE_FALLBACK);
     }
-  }, [src, pokemonId, localCdnIndex, failed, cdnIndex]);
+  }, [src, localCdnIndex, failed, cdnIndex]);
 
   const handleError = () => {
     if (failed) return;
 
-    if (pokemonId === undefined) {
+    if (!src || !src.includes('official-artwork')) {
       setFailed(true);
-      setCurrentSrc(FALLBACK_IMG);
+      setCurrentSrc(RELIABLE_FALLBACK);
       return;
     }
 
@@ -55,7 +75,7 @@ export const SafeImage = ({
     // If we've tried all CDNs, stop and show fallback
     if (attemptsRef.current >= CDNS.length) {
       setFailed(true);
-      setCurrentSrc(FALLBACK_IMG);
+      setCurrentSrc(RELIABLE_FALLBACK);
       return;
     }
 
@@ -65,7 +85,7 @@ export const SafeImage = ({
 
   return (
     <img 
-      src={currentSrc || FALLBACK_IMG} 
+      src={currentSrc || RELIABLE_FALLBACK} 
       alt={alt} 
       className={className} 
       referrerPolicy="no-referrer" 

@@ -11,6 +11,8 @@ export const TERMINOLOGY = {
 export const FALLBACK_IMG = 'https://cdn.jsdelivr.net/gh/PokeAPI/sprites/master/sprites/items/poke-ball.png';
 
 export const CDNS = [
+  '/api/pokemon-image/', // Local proxy (bypasses client-side network restrictions)
+  'https://cyberpoke-card-battle-278096702666.us-west1.run.app/api/pokemon-image/', // User's backup database
   'https://cdn.jsdelivr.net/gh/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/',
   'https://fastly.jsdelivr.net/gh/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/',
   'https://gcore.jsdelivr.net/gh/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/',

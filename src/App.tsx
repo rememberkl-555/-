@@ -2177,31 +2177,31 @@ export default function App() {
       </div>
 
       {/* Header */}
-      <div className="p-4 bg-black/60 border-b border-white/10 flex justify-between items-center z-20">
-        <div className="flex items-center gap-6">
-          <div className="text-2xl font-black italic text-red-500 glitch-text">无尽塔 // WAVE {endlessLineup.wave}</div>
-          <div className="text-xs font-mono text-yellow-400">CREDITS: {gold}</div>
+      <div className="p-2 md:p-4 bg-black/60 border-b border-white/10 flex justify-between items-center z-20 shrink-0">
+        <div className="flex items-center gap-2 md:gap-6">
+          <div className="text-sm md:text-2xl font-black italic text-red-500 glitch-text">无尽塔 // WAVE {endlessLineup.wave}</div>
+          <div className="text-[10px] md:text-xs font-mono text-yellow-400">CREDITS: {gold}</div>
         </div>
         <button 
           onClick={() => setPhase('HUB')}
-          className="px-6 py-2 border-2 border-red-500 text-red-500 font-black uppercase tracking-widest hover:bg-red-500 hover:text-black transition-all"
+          className="px-3 md:px-6 py-1 md:py-2 border-2 border-red-500 text-red-500 text-[10px] md:text-base font-black uppercase tracking-widest hover:bg-red-500 hover:text-black transition-all"
         >
           终止链接 (EXIT)
         </button>
       </div>
 
       {/* Main Battle Area */}
-      <div className="flex-1 flex flex-col relative">
+      <div className="flex-1 flex flex-col relative overflow-hidden">
         {/* Enemy Lineup */}
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+        <div className="absolute top-2 md:top-4 left-1/2 -translate-x-1/2 flex gap-1 md:gap-2 z-30">
           {endlessLineup.enemy?.map((e, i) => (
             <div 
               key={i} 
-              className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center transition-all ${i === endlessLineup.enemyIdx ? 'border-red-500 bg-red-500/20 scale-110' : i < endlessLineup.enemyIdx ? 'border-white/5 opacity-20' : 'border-white/20 opacity-60'}`}
+              className={`w-8 h-8 md:w-10 md:h-10 rounded-lg border-2 flex items-center justify-center transition-all ${i === endlessLineup.enemyIdx ? 'border-red-500 bg-red-500/20 scale-110' : i < endlessLineup.enemyIdx ? 'border-white/5 opacity-20' : 'border-white/20 opacity-60'}`}
             >
               <SafeImage 
                 src={e.img} 
-                className="w-8 h-8 object-contain" 
+                className="w-6 h-6 md:w-8 md:h-8 object-contain" 
                 cdnIndex={cdnIndex} 
                 pokemonId={e.id}
               />
@@ -2210,7 +2210,7 @@ export default function App() {
         </div>
 
         {/* Player Lineup */}
-        <div className="absolute bottom-32 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+        <div className="absolute bottom-48 md:bottom-32 left-1/2 -translate-x-1/2 flex gap-1 md:gap-2 z-30">
           {endlessLineup.player?.map((p, i) => (
             <div 
               key={i} 
@@ -2222,21 +2222,21 @@ export default function App() {
                   addFloatingText(`切换至 ${p.name}`, p.color, 'PLAYER');
                 }
               }}
-              className={`w-12 h-12 rounded-xl border-2 flex items-center justify-center cursor-pointer transition-all ${i === endlessLineup.playerIdx ? 'border-cyan-400 bg-cyan-400/20 scale-110 shadow-[0_0_15px_rgba(34,211,238,0.5)]' : p.hp <= 0 ? 'border-red-900 bg-red-900/20 opacity-30 grayscale' : 'border-white/20 opacity-60 hover:opacity-100'}`}
+              className={`w-10 h-10 md:w-12 md:h-12 rounded-xl border-2 flex items-center justify-center cursor-pointer transition-all ${i === endlessLineup.playerIdx ? 'border-cyan-400 bg-cyan-400/20 scale-110 shadow-[0_0_15px_rgba(34,211,238,0.5)]' : p.hp <= 0 ? 'border-red-900 bg-red-900/20 opacity-30 grayscale' : 'border-white/20 opacity-60 hover:opacity-100'}`}
             >
               <SafeImage 
                 src={p.img} 
-                className="w-10 h-10 object-contain" 
+                className="w-8 h-8 md:w-10 md:h-10 object-contain" 
                 cdnIndex={cdnIndex} 
                 pokemonId={p.id}
               />
-              {p.hp <= 0 && <Skull className="absolute w-6 h-6 text-red-600" />}
+              {p.hp <= 0 && <Skull className="absolute w-4 h-4 md:w-6 md:h-6 text-red-600" />}
             </div>
           ))}
         </div>
 
         {/* The Battle View (Reusing components if possible or just inline) */}
-        <div className="flex-1 flex flex-col items-center justify-center">
+        <div className="flex-1 flex flex-col items-center justify-center overflow-hidden">
           {renderBattle()}
         </div>
       </div>
@@ -2249,13 +2249,13 @@ export default function App() {
         <p className="font-mono text-xs text-cyan-400 opacity-60 uppercase tracking-[0.3em]">Sector {floor} // 防火墙渗透中</p>
       </div>
       
-      <div className="relative w-full max-w-4xl min-h-[500px] flex flex-col items-center justify-between border border-white/5 rounded-3xl bg-white/5 backdrop-blur-sm p-12">
-        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] bg-[size:40px_40px]" />
+      <div className="relative w-full max-w-4xl min-h-[400px] md:min-h-[500px] flex flex-col items-center justify-between border border-white/5 rounded-3xl bg-white/5 backdrop-blur-sm p-4 md:p-12 overflow-x-auto no-scrollbar">
+        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] bg-[size:20px_20px] md:bg-[size:40px_40px]" />
         
         {Array.from({ length: 5 }).map((_, f) => {
           const nodes = map.filter(n => n.floor === f + 1);
           return (
-            <div key={f} className="flex justify-around w-full relative z-10">
+            <div key={f} className="flex justify-around w-full min-w-[300px] relative z-10 my-2 md:my-0">
               {nodes?.map(node => {
                 const isCurrentFloor = floor === node.floor;
                 const isVisited = floor > node.floor;
@@ -2272,19 +2272,19 @@ export default function App() {
                     key={node.id}
                     whileHover={isSelectable ? { scale: 1.2, boxShadow: '0 0 30px rgba(0,255,255,0.4)' } : {}}
                     onClick={() => isSelectable && enterNode(node)}
-                    className={`relative w-20 h-20 rounded-xl border-2 flex flex-col items-center justify-center cursor-pointer transition-all duration-300
+                    className={`relative w-12 h-12 md:w-20 md:h-20 rounded-xl border-2 flex flex-col items-center justify-center cursor-pointer transition-all duration-300 shrink-0
                       ${isSelectable ? 'border-cyan-400 bg-cyan-950/20 shadow-[0_0_15px_rgba(0,255,255,0.2)]' : 'border-white/10 bg-black/40 opacity-40'}
                       ${isVisited ? 'grayscale opacity-20 cursor-not-allowed' : ''}
                       ${currentNodeId === node.id ? 'border-yellow-400 bg-yellow-950/20 shadow-[0_0_20px_rgba(250,204,21,0.4)]' : ''}
                     `}
                   >
-                    {node.type === 'COMBAT' && <Swords className="w-8 h-8 text-red-500" />}
-                    {node.type === 'ELITE' && <Skull className="w-8 h-8 text-purple-500" />}
-                    {node.type === 'BOSS' && <Zap className="w-10 h-10 text-yellow-500 animate-pulse" />}
-                    {node.type === 'SHOP' && <Database className="w-8 h-8 text-yellow-400" />}
-                    {node.type === 'REST' && <Activity className="w-8 h-8 text-green-400" />}
-                    <span className="text-[8px] font-black uppercase tracking-tighter mt-1">{node.type}</span>
-                    {isSelectable && <div className="absolute -inset-2 border border-cyan-400/20 rounded-xl animate-ping" />}
+                    {node.type === 'COMBAT' && <Swords className="w-5 h-5 md:w-8 md:h-8 text-red-500" />}
+                    {node.type === 'ELITE' && <Skull className="w-5 h-5 md:w-8 md:h-8 text-purple-500" />}
+                    {node.type === 'BOSS' && <Zap className="w-6 h-6 md:w-10 md:h-10 text-yellow-500 animate-pulse" />}
+                    {node.type === 'SHOP' && <Database className="w-5 h-5 md:w-8 md:h-8 text-yellow-400" />}
+                    {node.type === 'REST' && <Activity className="w-5 h-5 md:w-8 md:h-8 text-green-400" />}
+                    <span className="text-[6px] md:text-[8px] font-black uppercase tracking-tighter mt-1">{node.type}</span>
+                    {isSelectable && <div className="absolute -inset-1 md:-inset-2 border border-cyan-400/20 rounded-xl animate-ping" />}
                   </motion.div>
                 );
               })}
@@ -2293,7 +2293,7 @@ export default function App() {
         })}
       </div>
 
-      <div className="mt-12 flex gap-8">
+      <div className="mt-8 md:mt-12 flex flex-col md:flex-row gap-4 md:gap-8">
         <div className="flex items-center gap-2 px-6 py-3 border border-white/10 rounded-full bg-black/60">
           <Database className="w-4 h-4 text-yellow-400" />
           <span className="text-sm font-mono uppercase">Credits: <span className="text-yellow-400 font-black">{gold}</span></span>
@@ -2307,15 +2307,15 @@ export default function App() {
   );
 
   const renderInventory = () => (
-    <div className="fixed top-4 right-4 flex gap-2 z-[60]">
+    <div className="fixed top-16 md:top-4 right-4 flex gap-2 z-[60] flex-wrap justify-end max-w-[150px] md:max-w-none">
       {inventory?.map((item, i) => (
         <motion.div
           key={i}
           whileHover={{ scale: 1.1, y: -5 }}
           onClick={() => useConsumable(item, i)}
-          className="w-12 h-12 bg-black/80 border border-white/20 rounded-xl flex items-center justify-center cursor-pointer group relative"
+          className="w-10 h-10 md:w-12 md:h-12 bg-black/80 border border-white/20 rounded-xl flex items-center justify-center cursor-pointer group relative"
         >
-          <Package className="w-6 h-6 text-cyan-400 group-hover:text-white transition-colors" />
+          <Package className="w-5 h-5 md:w-6 md:h-6 text-cyan-400 group-hover:text-white transition-colors" />
           <div className="absolute top-full right-0 mt-2 w-48 p-2 bg-black/90 border border-white/20 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-[70]">
             <div className="text-xs font-black text-cyan-400 uppercase">{item.name}</div>
             <div className="text-[10px] text-white/60 mt-1">{item.desc}</div>
@@ -2333,54 +2333,54 @@ export default function App() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-8"
+          className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 md:p-8"
         >
           <motion.div
             initial={{ scale: 0.9, y: 20 }}
             animate={{ scale: 1, y: 0 }}
-            className="bg-[#0a0a15] border-2 border-cyan-500/30 rounded-3xl w-full max-w-2xl overflow-hidden shadow-[0_0_50px_rgba(0,255,255,0.1)]"
+            className="bg-[#0a0a15] border-2 border-cyan-500/30 rounded-3xl w-full max-w-2xl overflow-hidden shadow-[0_0_50px_rgba(0,255,255,0.1)] flex flex-col max-h-[90vh]"
           >
-            <div className="p-6 border-b border-white/10 flex justify-between items-center bg-cyan-950/20">
-              <h3 className="text-3xl font-black italic text-cyan-400 uppercase tracking-tighter">任务协议 (TASK PROTOCOLS)</h3>
+            <div className="p-4 md:p-6 border-b border-white/10 flex justify-between items-center bg-cyan-950/20 shrink-0">
+              <h3 className="text-xl md:text-3xl font-black italic text-cyan-400 uppercase tracking-tighter">任务协议 (TASK PROTOCOLS)</h3>
               <button onClick={() => setShowTasks(false)} className="text-white/40 hover:text-white transition-colors">
-                <Trash2 className="w-6 h-6" />
+                <Trash2 className="w-5 h-5 md:w-6 md:h-6" />
               </button>
             </div>
-            <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
+            <div className="p-4 md:p-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
               {tasks?.map((task) => (
-                <div key={task.id} className={`p-4 border rounded-2xl transition-all ${task.isClaimed ? 'bg-white/5 border-white/5 opacity-50' : 'bg-white/5 border-white/10 hover:border-cyan-500/50'}`}>
+                <div key={task.id} className={`p-3 md:p-4 border rounded-2xl transition-all ${task.isClaimed ? 'bg-white/5 border-white/5 opacity-50' : 'bg-white/5 border-white/10 hover:border-cyan-500/50'}`}>
                   <div className="flex justify-between items-start mb-2">
                     <div>
-                      <h4 className="font-black italic text-lg uppercase tracking-tight">{task.title}</h4>
-                      <p className="text-xs text-white/60 mt-1">{task.desc}</p>
+                      <h4 className="font-black italic text-base md:text-lg uppercase tracking-tight">{task.title}</h4>
+                      <p className="text-[10px] md:text-xs text-white/60 mt-1">{task.desc}</p>
                     </div>
-                    <div className="flex items-center gap-2 text-yellow-400 font-black">
-                      <Coins className="w-4 h-4" />
-                      <span>{task.reward}</span>
+                    <div className="flex items-center gap-1 md:gap-2 text-yellow-400 font-black shrink-0 ml-2">
+                      <Coins className="w-3 h-3 md:w-4 md:h-4" />
+                      <span className="text-sm md:text-base">{task.reward}</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4 mt-4">
-                    <div className="flex-1 h-2 bg-black/40 rounded-full overflow-hidden border border-white/5">
+                  <div className="flex items-center gap-2 md:gap-4 mt-4">
+                    <div className="flex-1 h-1.5 md:h-2 bg-black/40 rounded-full overflow-hidden border border-white/5">
                       <motion.div 
                         initial={{ width: 0 }}
                         animate={{ width: `${(task.progress / task.target) * 100}%` }}
                         className="h-full bg-cyan-500 shadow-[0_0_10px_#06b6d4]"
                       />
                     </div>
-                    <span className="text-[10px] font-mono text-white/40">{task.progress} / {task.target}</span>
+                    <span className="text-[8px] md:text-[10px] font-mono text-white/40 shrink-0">{task.progress} / {task.target}</span>
                     {task.progress >= task.target && !task.isClaimed ? (
                       <button 
                         onClick={() => claimTaskReward(task.id)}
-                        className="px-4 py-1 bg-yellow-400 text-black text-[10px] font-black uppercase rounded hover:bg-yellow-300 transition-all"
+                        className="px-2 md:px-4 py-1 bg-yellow-400 text-black text-[8px] md:text-[10px] font-black uppercase rounded hover:bg-yellow-300 transition-all shrink-0"
                       >
                         领取奖励
                       </button>
                     ) : task.isClaimed ? (
-                      <span className="text-[10px] text-green-400 font-black uppercase flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3" /> 已完成
+                      <span className="text-[8px] md:text-[10px] text-green-400 font-black uppercase flex items-center gap-1 shrink-0">
+                        <CheckCircle2 className="w-2 h-2 md:w-3 md:h-3" /> 已完成
                       </span>
                     ) : (
-                      <span className="text-[10px] text-white/20 font-black uppercase">进行中</span>
+                      <span className="text-[8px] md:text-[10px] text-white/20 font-black uppercase shrink-0">进行中</span>
                     )}
                   </div>
                 </div>
@@ -2393,52 +2393,54 @@ export default function App() {
   );
 
   const renderPVPLobby = () => (
-    <div className="h-full w-full bg-black text-white flex flex-col items-center justify-center relative overflow-hidden">
+    <div className="h-full w-full bg-black text-white flex flex-col items-center justify-center relative overflow-hidden p-4">
       <div className="absolute inset-0 opacity-20">
         <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,#ff0000_0%,transparent_70%)]" />
       </div>
       
-      <div className="relative z-10 text-center">
+      <div className="relative z-10 text-center w-full max-w-md mx-auto">
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-          className="mb-8"
+          className="mb-6 md:mb-8 flex justify-center"
         >
-          <Swords className="w-24 h-24 text-red-500" />
+          <Swords className="w-16 h-16 md:w-24 md:h-24 text-red-500" />
         </motion.div>
         
-        <h2 className="text-5xl font-black italic tracking-tighter text-red-500 mb-4">PVP 匹配中...</h2>
-        <p className="font-mono text-sm opacity-60 uppercase tracking-[0.3em]">正在寻找合适的对手 (SEARCHING FOR OPPONENT)</p>
+        <h2 className="text-3xl md:text-5xl font-black italic tracking-tighter text-red-500 mb-2 md:mb-4">PVP 匹配中...</h2>
+        <p className="font-mono text-[10px] md:text-sm opacity-60 uppercase tracking-[0.1em] md:tracking-[0.3em]">正在寻找合适的对手 (SEARCHING FOR OPPONENT)</p>
         
-        <div className="mt-12 flex flex-col items-center gap-6">
+        <div className="mt-8 md:mt-12 flex flex-col items-center gap-4 md:gap-6">
           <div className="flex gap-2">
             {[...Array(3)].map((_, i) => (
               <motion.div
                 key={i}
                 animate={{ scale: [1, 1.5, 1], opacity: [0.3, 1, 0.3] }}
                 transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
-                className="w-3 h-3 bg-red-500 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.5)]"
+                className="w-2 h-2 md:w-3 md:h-3 bg-red-500 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.5)]"
               />
             ))}
           </div>
           
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={leavePVPLobby}
-            className="px-8 py-3 border-2 border-white/20 rounded-full font-black italic uppercase hover:bg-white/10 transition-colors"
-          >
-            取消匹配
-          </motion.button>
+          <div className="flex flex-col sm:flex-row gap-3 md:gap-4 w-full justify-center">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={leavePVPLobby}
+              className="px-6 md:px-8 py-2 md:py-3 border-2 border-white/20 rounded-full font-black italic uppercase hover:bg-white/10 transition-colors text-sm md:text-base w-full sm:w-auto"
+            >
+              取消匹配
+            </motion.button>
 
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={startAiBattle}
-            className="px-8 py-3 bg-red-500 text-white rounded-full font-black italic uppercase hover:bg-red-600 transition-colors shadow-[0_0_20px_rgba(239,68,68,0.3)]"
-          >
-            练习模式 (VS AI)
-          </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={startAiBattle}
+              className="px-6 md:px-8 py-2 md:py-3 bg-red-500 text-white rounded-full font-black italic uppercase hover:bg-red-600 transition-colors shadow-[0_0_20px_rgba(239,68,68,0.3)] text-sm md:text-base w-full sm:w-auto"
+            >
+              练习模式 (VS AI)
+            </motion.button>
+          </div>
         </div>
       </div>
     </div>
@@ -2447,9 +2449,9 @@ export default function App() {
     if (!pvpState || !player) return null;
 
     return (
-      <div className="h-full w-full bg-[#05050a] p-8 text-white flex flex-col relative overflow-hidden">
+      <div className="h-full w-full bg-[#05050a] p-4 md:p-8 text-white flex flex-col relative overflow-hidden">
         {/* Opponent Section */}
-        <div className="flex-1 flex flex-col items-center justify-start pt-12">
+        <div className="flex-1 flex flex-col items-center justify-start pt-4 md:pt-12">
           <div className="relative">
             <motion.div
               animate={{
@@ -2457,95 +2459,95 @@ export default function App() {
                 filter: ["hue-rotate(0deg)", "hue-rotate(10deg)", "hue-rotate(0deg)"]
               }}
               transition={{ duration: 4, repeat: Infinity }}
-              className={`w-64 h-64 rounded-full flex items-center justify-center relative z-20 ${pvpState.opponentPokemon?.bgGradient || ''} border-4 border-white/20 shadow-[0_0_50px_rgba(255,255,255,0.1)]`}
+              className={`w-32 h-32 md:w-64 md:h-64 rounded-full flex items-center justify-center relative z-20 ${pvpState.opponentPokemon?.bgGradient || ''} border-4 border-white/20 shadow-[0_0_50px_rgba(255,255,255,0.1)]`}
             >
               <SafeImage 
                 src={pvpState.opponentPokemon?.img || ''} 
                 alt={pvpState.opponentPokemon?.name || ''}
-                className="w-48 h-48 object-contain drop-shadow-[0_0_20px_rgba(255,255,255,0.5)]"
+                className="w-24 h-24 md:w-48 md:h-48 object-contain drop-shadow-[0_0_20px_rgba(255,255,255,0.5)]"
                 cdnIndex={cdnIndex}
               />
             </motion.div>
             
             {/* Opponent Info */}
-            <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 w-80 bg-black/80 backdrop-blur-md border border-white/20 p-4 rounded-2xl z-30">
-              <div className="flex justify-between items-end mb-2">
-                <span className="text-xl font-black italic text-red-400 uppercase tracking-tighter">{pvpState.opponentName}</span>
-                <span className="text-xs font-mono opacity-60">LV.{pvpState.opponentPokemon?.level}</span>
+            <div className="absolute -bottom-8 md:-bottom-12 left-1/2 -translate-x-1/2 w-64 md:w-80 bg-black/80 backdrop-blur-md border border-white/20 p-2 md:p-4 rounded-xl md:rounded-2xl z-30">
+              <div className="flex justify-between items-end mb-1 md:mb-2">
+                <span className="text-sm md:text-xl font-black italic text-red-400 uppercase tracking-tighter truncate max-w-[150px] md:max-w-none">{pvpState.opponentName}</span>
+                <span className="text-[10px] md:text-xs font-mono opacity-60">LV.{pvpState.opponentPokemon?.level}</span>
               </div>
               
-              <div className="w-full h-3 bg-white/5 rounded-full overflow-hidden border border-white/10 mb-1">
+              <div className="w-full h-2 md:h-3 bg-white/5 rounded-full overflow-hidden border border-white/10 mb-1">
                 <motion.div 
                   initial={{ width: 0 }}
                   animate={{ width: `${(pvpState.opponentHp / pvpState.opponentMaxHp) * 100}%` }}
                   className="h-full bg-gradient-to-r from-red-600 to-red-400"
                 />
               </div>
-              <div className="flex justify-between text-[10px] font-mono font-bold">
+              <div className="flex justify-between text-[8px] md:text-[10px] font-mono font-bold">
                 <span className="text-red-400">HP {pvpState.opponentHp}/{pvpState.opponentMaxHp}</span>
                 {pvpState.opponentShield > 0 && <span className="text-blue-400">SHIELD {pvpState.opponentShield}</span>}
               </div>
-              <div className="flex gap-1 mt-2">
+              <div className="flex gap-1 mt-1 md:mt-2">
                 {pvpState.opponentPokemon?.statusEffects?.map((s, i) => <StatusIcon key={i} effect={s} />)}
               </div>
             </div>
           </div>
           
           {/* Opponent Hand Count */}
-          <div className="mt-20 flex gap-1">
+          <div className="mt-12 md:mt-20 flex gap-1">
             {[...Array(pvpState.opponentHandCount || 0)].map((_, i) => (
-              <div key={i} className="w-8 h-12 bg-red-950/40 border border-red-500/30 rounded-md transform -rotate-6" />
+              <div key={i} className="w-4 h-6 md:w-8 md:h-12 bg-red-950/40 border border-red-500/30 rounded-sm md:rounded-md transform -rotate-6" />
             ))}
           </div>
         </div>
 
         {/* VS Divider */}
-        <div className="h-px w-full bg-gradient-to-r from-transparent via-white/20 to-transparent my-8 relative">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black px-4 py-1 border border-white/20 rounded-full text-xs font-black italic uppercase text-white/40">
+        <div className="h-px w-full bg-gradient-to-r from-transparent via-white/20 to-transparent my-4 md:my-8 relative">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black px-3 md:px-4 py-1 border border-white/20 rounded-full text-[10px] md:text-xs font-black italic uppercase text-white/40 whitespace-nowrap">
             Turn {pvpState.turnNumber} - {pvpState.isMyTurn ? "你的回合" : "对手回合"}
           </div>
         </div>
 
         {/* Opponent Party Status */}
-        <div className="flex gap-2 justify-center mb-4">
+        <div className="flex gap-1 md:gap-2 justify-center mb-2 md:mb-4">
           {pvpState.opponentParty?.map((p, i) => (
             <div 
               key={i} 
-              className={`w-3 h-3 rounded-full border ${i === pvpState.opponentActiveIndex ? 'bg-red-500 border-red-400 animate-pulse' : p.hp <= 0 ? 'bg-gray-800 border-gray-700' : 'bg-red-900/40 border-red-500/30'}`}
+              className={`w-2 h-2 md:w-3 md:h-3 rounded-full border ${i === pvpState.opponentActiveIndex ? 'bg-red-500 border-red-400 animate-pulse' : p.hp <= 0 ? 'bg-gray-800 border-gray-700' : 'bg-red-900/40 border-red-500/30'}`}
               title={p.name}
             />
           ))}
         </div>
 
         {/* Player Section */}
-        <div className="flex-1 flex flex-col items-center justify-end pb-32">
+        <div className="flex-1 flex flex-col items-center justify-end pb-24 md:pb-32">
           <div className="relative">
             <motion.div
               animate={{
                 y: [0, -5, 0],
               }}
               transition={{ duration: 3, repeat: Infinity }}
-              className={`w-48 h-48 rounded-full flex items-center justify-center relative z-20 ${player.bgGradient} border-4 border-white/20 shadow-[0_0_30px_rgba(255,255,255,0.1)]`}
+              className={`w-32 h-32 md:w-48 md:h-48 rounded-full flex items-center justify-center relative z-20 ${player.bgGradient} border-4 border-white/20 shadow-[0_0_30px_rgba(255,255,255,0.1)]`}
             >
               <SafeImage 
                 src={player.img} 
                 alt={player.name}
-                className="w-32 h-32 object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.4)]"
+                className="w-20 h-20 md:w-32 md:h-32 object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.4)]"
                 cdnIndex={cdnIndex}
               />
             </motion.div>
 
             {/* Player Info */}
-            <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-64 bg-black/80 backdrop-blur-md border border-white/20 p-3 rounded-xl z-30">
+            <div className="absolute -top-12 md:-top-16 left-1/2 -translate-x-1/2 w-56 md:w-64 bg-black/80 backdrop-blur-md border border-white/20 p-2 md:p-3 rounded-xl z-30">
               <div className="flex justify-between items-end mb-1">
-                <span className="text-lg font-black italic text-cyan-400 uppercase tracking-tighter">{player.name}</span>
-                <div className="flex items-center gap-1 bg-cyan-500/20 px-2 py-0.5 rounded border border-cyan-500/30">
-                  <Zap className="w-3 h-3 text-cyan-400" />
-                  <span className="text-xs font-black text-cyan-400">{player.energy}/{player.maxEnergy}</span>
+                <span className="text-sm md:text-lg font-black italic text-cyan-400 uppercase tracking-tighter truncate max-w-[120px] md:max-w-none">{player.name}</span>
+                <div className="flex items-center gap-1 bg-cyan-500/20 px-1 md:px-2 py-0.5 rounded border border-cyan-500/30">
+                  <Zap className="w-2 h-2 md:w-3 md:h-3 text-cyan-400" />
+                  <span className="text-[10px] md:text-xs font-black text-cyan-400">{player.energy}/{player.maxEnergy}</span>
                 </div>
               </div>
               
-              <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden border border-white/10 mb-1">
+              <div className="w-full h-1.5 md:h-2 bg-white/5 rounded-full overflow-hidden border border-white/10 mb-1">
                 <motion.div 
                   initial={{ width: 0 }}
                   animate={{ width: `${(player.hp / player.maxHp) * 100}%` }}
@@ -2556,18 +2558,18 @@ export default function App() {
                 <span className="text-cyan-400">HP {player.hp}/{player.maxHp}</span>
                 {player.shield > 0 && <span className="text-blue-400">SHIELD {player.shield}</span>}
               </div>
-              <div className="flex gap-1 mt-2">
+              <div className="flex gap-1 mt-1 md:mt-2">
                 {player?.statusEffects?.map((s, i) => <StatusIcon key={i} effect={s} />)}
               </div>
             </div>
           </div>
           
           {/* Player Party Status */}
-          <div className="flex gap-2 mt-4">
+          <div className="flex gap-1 md:gap-2 mt-2 md:mt-4">
             {party?.map((p, i) => (
               <div 
                 key={i} 
-                className={`w-3 h-3 rounded-full border ${i === activePokemonIndex ? 'bg-cyan-500 border-cyan-400 animate-pulse' : p.hp <= 0 ? 'bg-gray-800 border-gray-700' : 'bg-cyan-900/40 border-cyan-500/30'}`}
+                className={`w-2 h-2 md:w-3 md:h-3 rounded-full border ${i === activePokemonIndex ? 'bg-cyan-500 border-cyan-400 animate-pulse' : p.hp <= 0 ? 'bg-gray-800 border-gray-700' : 'bg-cyan-900/40 border-cyan-500/30'}`}
                 title={p.name}
               />
             ))}
@@ -2575,7 +2577,7 @@ export default function App() {
         </div>
 
         {/* Hand UI */}
-        <div className="fixed bottom-0 left-0 w-full p-8 flex justify-center items-end gap-2 z-50 pointer-events-none">
+        <div className="fixed bottom-0 left-0 w-full p-2 md:p-8 flex justify-center items-end gap-1 md:gap-2 z-50 pointer-events-none overflow-x-auto no-scrollbar">
           {piles.hand?.map((card, i) => {
             const canPlay = pvpState.isMyTurn && player.energy >= card.cost && !isAnimating;
             return (
@@ -2583,23 +2585,23 @@ export default function App() {
                 key={card.uid}
                 initial={{ y: 100, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                whileHover={canPlay ? { y: -20, scale: 1.1 } : {}}
+                whileHover={canPlay ? { y: -10, scale: 1.05 } : {}}
                 onClick={() => canPlay && playPVPCard(card, i)}
-                className={`w-48 h-64 bg-black/90 border-2 rounded-2xl p-4 flex flex-col relative cursor-pointer pointer-events-auto transition-all ${
+                className={`w-24 h-36 md:w-48 md:h-64 bg-black/90 border-2 rounded-xl md:rounded-2xl p-2 md:p-4 flex flex-col relative cursor-pointer pointer-events-auto transition-all shrink-0 ${
                   canPlay ? 'border-cyan-500/50 shadow-[0_0_20px_rgba(6,182,212,0.2)]' : 'border-white/10 opacity-50 grayscale'
                 }`}
               >
-                <div className="flex justify-between items-start mb-2">
-                  <span className="text-xs font-black italic text-cyan-400 uppercase">{card.type}</span>
-                  <div className="w-6 h-6 rounded-full bg-cyan-500 flex items-center justify-center text-xs font-black">
+                <div className="flex justify-between items-start mb-1 md:mb-2">
+                  <span className="text-[8px] md:text-xs font-black italic text-cyan-400 uppercase">{card.type}</span>
+                  <div className="w-4 h-4 md:w-6 md:h-6 rounded-full bg-cyan-500 flex items-center justify-center text-[10px] md:text-xs font-black">
                     {card.cost}
                   </div>
                 </div>
                 <div className="flex-1 flex flex-col items-center justify-center text-center">
-                  <h4 className="text-lg font-black italic uppercase mb-2 leading-tight">{card.name}</h4>
-                  <p className="text-[10px] opacity-60 leading-relaxed">{card.desc}</p>
+                  <h4 className="text-[10px] md:text-lg font-black italic uppercase mb-1 md:mb-2 leading-tight">{card.name}</h4>
+                  <p className="text-[8px] md:text-[10px] opacity-60 leading-relaxed hidden md:block">{card.desc}</p>
                 </div>
-                <div className={`mt-4 pt-4 border-t border-white/10 text-[10px] font-mono uppercase tracking-widest text-center ${
+                <div className={`mt-1 md:mt-4 pt-1 md:pt-4 border-t border-white/10 text-[8px] md:text-[10px] font-mono uppercase tracking-widest text-center ${
                   card.rarity === 'RARE' ? 'text-yellow-400' : 
                   card.rarity === 'UNCOMMON' ? 'text-cyan-400' : 'text-white/40'
                 }`}>
@@ -2611,25 +2613,25 @@ export default function App() {
         </div>
 
         {/* Controls */}
-        <div className="fixed bottom-8 right-8 z-50 flex flex-col gap-4 items-end">
-          <div className="flex gap-4">
+        <div className="fixed bottom-20 md:bottom-8 right-2 md:right-8 z-50 flex flex-col gap-2 md:gap-4 items-end">
+          <div className="flex gap-2 md:gap-4">
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setShowBackpack(true)}
               disabled={!pvpState.isMyTurn || isAnimating}
-              className="w-14 h-14 bg-cyan-500/20 border border-cyan-500/50 rounded-full flex items-center justify-center text-cyan-400 hover:bg-cyan-500 hover:text-black transition-all disabled:opacity-30"
+              className="w-10 h-10 md:w-14 md:h-14 bg-cyan-500/20 border border-cyan-500/50 rounded-full flex items-center justify-center text-cyan-400 hover:bg-cyan-500 hover:text-black transition-all disabled:opacity-30"
             >
-              <Briefcase className="w-6 h-6" />
+              <Briefcase className="w-4 h-4 md:w-6 md:h-6" />
             </motion.button>
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setShowPartySwitch(true)}
               disabled={!pvpState.isMyTurn || isAnimating}
-              className="w-14 h-14 bg-purple-500/20 border border-purple-500/50 rounded-full flex items-center justify-center text-purple-400 hover:bg-purple-500 hover:text-black transition-all disabled:opacity-30"
+              className="w-10 h-10 md:w-14 md:h-14 bg-purple-500/20 border border-purple-500/50 rounded-full flex items-center justify-center text-purple-400 hover:bg-purple-500 hover:text-black transition-all disabled:opacity-30"
             >
-              <Layers className="w-6 h-6" />
+              <Layers className="w-4 h-4 md:w-6 md:h-6" />
             </motion.button>
           </div>
           <motion.button
@@ -2637,7 +2639,7 @@ export default function App() {
             whileTap={{ scale: 0.95 }}
             onClick={endPVPTurn}
             disabled={!pvpState.isMyTurn}
-            className={`px-8 py-4 rounded-full font-black italic uppercase shadow-xl transition-all ${
+            className={`px-4 md:px-8 py-2 md:py-4 rounded-full font-black italic uppercase shadow-xl transition-all text-xs md:text-base ${
               pvpState.isMyTurn 
                 ? 'bg-cyan-500 text-black hover:bg-cyan-400' 
                 : 'bg-white/10 text-white/40 cursor-not-allowed'
@@ -2834,15 +2836,15 @@ export default function App() {
         <p className="font-mono text-xs opacity-60 uppercase tracking-[0.5em]">准备下一次协议注入 (PREPARE FOR NEXT PROTOCOL)</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 max-w-7xl w-full relative z-10">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6 max-w-7xl w-full relative z-10 overflow-y-auto pb-20 md:pb-0">
         <motion.div 
           whileHover={{ scale: 1.05, y: -5 }}
           onClick={startRun}
-          className="p-6 border-2 border-cyan-500/30 bg-cyan-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-cyan-400 hover:bg-cyan-900/20 transition-all group"
+          className="p-4 md:p-6 border-2 border-cyan-500/30 bg-cyan-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-cyan-400 hover:bg-cyan-900/20 transition-all group col-span-2 md:col-span-1"
         >
-          <Zap className="w-12 h-12 text-cyan-400 mb-4 group-hover:animate-pulse" />
-          <h3 className="text-xl font-black italic uppercase">开始任务</h3>
-          <p className="text-[10px] opacity-60 mt-2 text-center">挑战病毒程序</p>
+          <Zap className="w-10 h-10 md:w-12 md:h-12 text-cyan-400 mb-2 md:mb-4 group-hover:animate-pulse" />
+          <h3 className="text-lg md:text-xl font-black italic uppercase">开始任务</h3>
+          <p className="text-[10px] opacity-60 mt-1 md:mt-2 text-center">挑战病毒程序</p>
         </motion.div>
 
         <motion.div 
@@ -2875,41 +2877,51 @@ export default function App() {
             setShopPokemon(pokemonPool as EntityState[]);
             setPhase('SHOP');
           }}
-          className="p-6 border-2 border-yellow-500/30 bg-yellow-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-yellow-400 hover:bg-yellow-900/20 transition-all group"
+          className="p-4 md:p-6 border-2 border-yellow-500/30 bg-yellow-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-yellow-400 hover:bg-yellow-900/20 transition-all group"
         >
-          <ShoppingCart className="w-12 h-12 text-yellow-400 mb-4 group-hover:animate-bounce" />
-          <h3 className="text-xl font-black italic uppercase">黑市终端</h3>
-          <p className="text-[10px] opacity-60 mt-2 text-center text-yellow-400/80">CREDITS: {gold}</p>
+          <ShoppingCart className="w-10 h-10 md:w-12 md:h-12 text-yellow-400 mb-2 md:mb-4 group-hover:animate-bounce" />
+          <h3 className="text-lg md:text-xl font-black italic uppercase">黑市终端</h3>
+          <p className="text-[10px] opacity-60 mt-1 md:mt-2 text-center text-yellow-400/80">CREDITS: {gold}</p>
         </motion.div>
 
         <motion.div 
           whileHover={{ scale: 1.05, y: -5 }}
           onClick={() => setPhase('DECK_VIEW')}
-          className="p-6 border-2 border-purple-500/30 bg-purple-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-900/20 transition-all group"
+          className="p-4 md:p-6 border-2 border-purple-500/30 bg-purple-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-900/20 transition-all group"
         >
-          <Database className="w-12 h-12 text-purple-400 mb-4 group-hover:rotate-12 transition-transform" />
-          <h3 className="text-xl font-black italic uppercase">背包系统</h3>
-          <p className="text-[10px] opacity-60 mt-2 text-center">协议数: {permanentDeck.length}</p>
+          <Database className="w-10 h-10 md:w-12 md:h-12 text-purple-400 mb-2 md:mb-4 group-hover:rotate-12 transition-transform" />
+          <h3 className="text-lg md:text-xl font-black italic uppercase">背包系统</h3>
+          <p className="text-[10px] opacity-60 mt-1 md:mt-2 text-center">协议数: {permanentDeck.length}</p>
         </motion.div>
 
         <motion.div 
           whileHover={{ scale: 1.05, y: -5 }}
           onClick={() => setPhase('COLLECTION')}
-          className="p-6 border-2 border-yellow-500/30 bg-yellow-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-yellow-400 hover:bg-yellow-900/20 transition-all group"
+          className="p-4 md:p-6 border-2 border-yellow-500/30 bg-yellow-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-yellow-400 hover:bg-yellow-900/20 transition-all group"
         >
-          <BookOpen className="w-12 h-12 text-yellow-400 mb-4" />
-          <h3 className="text-xl font-black italic uppercase">藏品库</h3>
-          <p className="text-[10px] opacity-60 mt-2 text-center">查看高级藏品</p>
+          <BookOpen className="w-10 h-10 md:w-12 md:h-12 text-yellow-400 mb-2 md:mb-4" />
+          <h3 className="text-lg md:text-xl font-black italic uppercase">藏品库</h3>
+          <p className="text-[10px] opacity-60 mt-1 md:mt-2 text-center">查看高级藏品</p>
+        </motion.div>
+
+        <motion.div 
+          whileHover={{ scale: 1.05, y: -5 }}
+          onClick={resetGame}
+          className="p-4 md:p-6 border-2 border-red-500/30 bg-red-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-red-400 hover:bg-red-900/20 transition-all group"
+        >
+          <Trash2 className="w-10 h-10 md:w-12 md:h-12 text-red-400 mb-2 md:mb-4" />
+          <h3 className="text-lg md:text-xl font-black italic uppercase">系统重置</h3>
+          <p className="text-[10px] opacity-60 mt-1 md:mt-2 text-center">恢复出厂设置</p>
         </motion.div>
 
         <motion.div 
           whileHover={{ scale: 1.05, y: -5 }}
           onClick={joinPVPLobby}
-          className="p-6 border-2 border-red-500/30 bg-red-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-red-400 hover:bg-red-900/20 transition-all group"
+          className="p-4 md:p-6 border-2 border-red-500/30 bg-red-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-red-400 hover:bg-red-900/20 transition-all group"
         >
-          <Swords className="w-12 h-12 text-red-400 mb-4 group-hover:animate-spin" />
-          <h3 className="text-xl font-black italic uppercase">PVP 竞技场</h3>
-          <p className="text-[10px] opacity-60 mt-2 text-center">与其他玩家对战</p>
+          <Swords className="w-10 h-10 md:w-12 md:h-12 text-red-400 mb-2 md:mb-4 group-hover:animate-spin" />
+          <h3 className="text-lg md:text-xl font-black italic uppercase">PVP 竞技场</h3>
+          <p className="text-[10px] opacity-60 mt-1 md:mt-2 text-center">与其他玩家对战</p>
         </motion.div>
 
         <motion.div 
@@ -2918,11 +2930,11 @@ export default function App() {
             setDiagnosticStep('CHOICE');
             setShowDiagnostic(true);
           }}
-          className="p-6 border-2 border-emerald-500/30 bg-emerald-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-900/20 transition-all group"
+          className="p-4 md:p-6 border-2 border-emerald-500/30 bg-emerald-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-900/20 transition-all group"
         >
-          <ShieldCheck className="w-12 h-12 text-emerald-400 mb-4 group-hover:scale-110 transition-transform" />
-          <h3 className="text-xl font-black italic uppercase">系统自检</h3>
-          <p className="text-[10px] opacity-60 mt-2 text-center">优化或修复</p>
+          <ShieldCheck className="w-10 h-10 md:w-12 md:h-12 text-emerald-400 mb-2 md:mb-4 group-hover:scale-110 transition-transform" />
+          <h3 className="text-lg md:text-xl font-black italic uppercase">系统自检</h3>
+          <p className="text-[10px] opacity-60 mt-1 md:mt-2 text-center">优化或修复</p>
         </motion.div>
 
         <motion.div 
@@ -2938,31 +2950,31 @@ export default function App() {
         <motion.div 
           whileHover={{ scale: 1.05, y: -5 }}
           onClick={() => setPhase('START')}
-          className="p-6 border-2 border-gray-500/30 bg-gray-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 hover:bg-gray-900/20 transition-all group"
+          className="p-4 md:p-6 border-2 border-gray-500/30 bg-gray-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 hover:bg-gray-900/20 transition-all group"
         >
-          <X className="w-12 h-12 text-gray-400 mb-4 group-hover:animate-pulse" />
-          <h3 className="text-xl font-black italic uppercase">终止协议</h3>
-          <p className="text-[10px] opacity-60 mt-2 text-center">重置系统状态</p>
+          <X className="w-10 h-10 md:w-12 md:h-12 text-gray-400 mb-2 md:mb-4 group-hover:animate-pulse" />
+          <h3 className="text-lg md:text-xl font-black italic uppercase">终止协议</h3>
+          <p className="text-[10px] opacity-60 mt-1 md:mt-2 text-center">重置系统状态</p>
         </motion.div>
 
         <motion.div 
           whileHover={{ scale: 1.05, y: -5 }}
           onClick={() => setShowGacha(true)}
-          className="p-6 border-2 border-pink-500/30 bg-pink-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-pink-400 hover:bg-pink-900/20 transition-all group"
+          className="p-4 md:p-6 border-2 border-pink-500/30 bg-pink-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-pink-400 hover:bg-pink-900/20 transition-all group"
         >
-          <Gift className="w-12 h-12 text-pink-400 mb-4 group-hover:animate-bounce" />
-          <h3 className="text-xl font-black italic uppercase">抽奖终端</h3>
-          <p className="text-[10px] opacity-60 mt-2 text-center">机会: {gachaTickets}</p>
+          <Gift className="w-10 h-10 md:w-12 md:h-12 text-pink-400 mb-2 md:mb-4 group-hover:animate-bounce" />
+          <h3 className="text-lg md:text-xl font-black italic uppercase">抽奖终端</h3>
+          <p className="text-[10px] opacity-60 mt-1 md:mt-2 text-center">机会: {gachaTickets}</p>
         </motion.div>
 
         <motion.div 
           whileHover={{ scale: 1.05, y: -5 }}
           onClick={startEndlessTower}
-          className="p-6 border-2 border-red-500/30 bg-red-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-red-400 hover:bg-red-900/20 transition-all group"
+          className="p-4 md:p-6 border-2 border-red-500/30 bg-red-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-red-400 hover:bg-red-900/20 transition-all group"
         >
-          <Skull className="w-12 h-12 text-red-400 mb-4 group-hover:scale-125 transition-transform" />
-          <h3 className="text-xl font-black italic uppercase">无尽塔</h3>
-          <p className="text-[10px] opacity-60 mt-2 text-center">极限挑战</p>
+          <Skull className="w-10 h-10 md:w-12 md:h-12 text-red-400 mb-2 md:mb-4 group-hover:scale-125 transition-transform" />
+          <h3 className="text-lg md:text-xl font-black italic uppercase">无尽塔</h3>
+          <p className="text-[10px] opacity-60 mt-1 md:mt-2 text-center">极限挑战</p>
         </motion.div>
       </div>
 
@@ -3009,17 +3021,17 @@ export default function App() {
 
   const renderCollection = () => {
     return (
-      <div className="h-full w-full bg-[#05050a] text-white p-8 overflow-y-auto custom-scrollbar">
-        <button onClick={() => setPhase('HUB')} className="mb-8 p-2 border border-white/20 rounded-full hover:bg-white/10">
-          <ArrowLeft className="w-6 h-6" />
+      <div className="h-full w-full bg-[#05050a] text-white p-4 md:p-8 overflow-y-auto custom-scrollbar">
+        <button onClick={() => setPhase('HUB')} className="mb-4 md:mb-8 p-2 border border-white/20 rounded-full hover:bg-white/10">
+          <ArrowLeft className="w-5 h-5 md:w-6 md:h-6" />
         </button>
-        <h2 className="text-4xl font-black italic text-yellow-400 mb-8">藏品库 (COLLECTION)</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <h2 className="text-2xl md:text-4xl font-black italic text-yellow-400 mb-4 md:mb-8">藏品库 (COLLECTION)</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-8">
           {COLLECTION_DB.map((relic, i) => (
-            <div key={relic.id || i} className="bg-white/5 p-6 rounded-3xl border border-white/10">
-              <h4 className="text-xl font-black italic text-white uppercase">{relic.name}</h4>
-              <p className="text-xs text-white/60 mt-2">{relic.desc}</p>
-              <span className="text-[10px] font-mono text-yellow-400 uppercase mt-4 block">{relic.rarity}</span>
+            <div key={relic.id || i} className="bg-white/5 p-4 md:p-6 rounded-2xl md:rounded-3xl border border-white/10">
+              <h4 className="text-lg md:text-xl font-black italic text-white uppercase">{relic.name}</h4>
+              <p className="text-[10px] md:text-xs text-white/60 mt-1 md:mt-2">{relic.desc}</p>
+              <span className="text-[8px] md:text-[10px] font-mono text-yellow-400 uppercase mt-2 md:mt-4 block">{relic.rarity}</span>
             </div>
           ))}
         </div>
@@ -3035,47 +3047,47 @@ export default function App() {
     return (
       <div className="h-full w-full bg-[#05050a] text-white flex flex-col items-center overflow-hidden relative">
         {/* Sticky Header with improved contrast */}
-        <div className="shrink-0 w-full bg-[#05050a]/90 backdrop-blur-xl border-b border-white/10 py-8 z-30 flex flex-col items-center relative">
+        <div className="shrink-0 w-full bg-[#05050a]/90 backdrop-blur-xl border-b border-white/10 py-4 md:py-8 z-30 flex flex-col items-center relative">
           <button 
             onClick={() => setPhase(currentNodeId ? 'MAP' : 'HUB')}
-            className="absolute top-8 right-8 p-2 border border-white/20 rounded-full hover:bg-white/10 transition-all z-50 group"
+            className="absolute top-4 md:top-8 right-4 md:right-8 p-2 border border-white/20 rounded-full hover:bg-white/10 transition-all z-50 group"
           >
-            <X className="w-6 h-6 text-white/40 group-hover:text-white transition-colors" />
+            <X className="w-5 h-5 md:w-6 md:h-6 text-white/40 group-hover:text-white transition-colors" />
           </button>
           
-          <div className="absolute top-8 left-8 flex items-center gap-4">
+          <div className="absolute top-4 md:top-8 left-4 md:left-8 flex items-center gap-2 md:gap-4">
             <button 
               onClick={refreshShop}
-              className="flex items-center gap-2 px-6 py-2 bg-cyan-900/40 border border-cyan-500/50 rounded-full text-[10px] font-black uppercase hover:bg-cyan-500 hover:text-black transition-all group"
+              className="flex items-center gap-1 md:gap-2 px-3 md:px-6 py-1.5 md:py-2 bg-cyan-900/40 border border-cyan-500/50 rounded-full text-[8px] md:text-[10px] font-black uppercase hover:bg-cyan-500 hover:text-black transition-all group"
             >
-              <RefreshCw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
+              <RefreshCw className="w-3 h-3 md:w-4 md:h-4 group-hover:rotate-180 transition-transform duration-500" />
               刷新商店 ({refreshCost})
             </button>
           </div>
 
-          <h2 className="text-4xl md:text-6xl font-black italic tracking-tighter text-yellow-400 mb-3 glitch-text">黑市终端</h2>
-          <div className="inline-flex items-center gap-3 px-6 py-2 bg-yellow-400/10 border border-yellow-400/30 rounded-full">
-            <Coins className="w-4 h-4 text-yellow-400" />
-            <span className="font-mono text-sm uppercase tracking-[0.2em] text-yellow-400">可用信用点: {gold}</span>
+          <h2 className="text-2xl md:text-4xl lg:text-6xl font-black italic tracking-tighter text-yellow-400 mb-2 md:mb-3 glitch-text mt-10 md:mt-0">黑市终端</h2>
+          <div className="inline-flex items-center gap-2 md:gap-3 px-4 md:px-6 py-1.5 md:py-2 bg-yellow-400/10 border border-yellow-400/30 rounded-full">
+            <Coins className="w-3 h-3 md:w-4 md:h-4 text-yellow-400" />
+            <span className="font-mono text-xs md:text-sm uppercase tracking-[0.1em] md:tracking-[0.2em] text-yellow-400">可用信用点: {gold}</span>
           </div>
         </div>
 
         {/* Scrollable Content Area */}
-        <div className="flex-1 w-full overflow-y-auto custom-scrollbar px-4 md:px-8 pt-8 pb-48">
-          <div className="w-full max-w-6xl mx-auto space-y-16">
+        <div className="flex-1 w-full overflow-y-auto custom-scrollbar px-4 md:px-8 pt-4 md:pt-8 pb-32 md:pb-48">
+          <div className="w-full max-w-6xl mx-auto space-y-8 md:space-y-16">
             {/* Shop Pokemon Section */}
             {shopPokemon && shopPokemon.length > 0 && (
               <section>
-                <h3 className="text-2xl font-black italic text-purple-400 uppercase mb-8 border-l-4 border-purple-400 pl-4">黑市宝可梦 (BLACK MARKET POKEMON)</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <h3 className="text-lg md:text-2xl font-black italic text-purple-400 uppercase mb-4 md:mb-8 border-l-4 border-purple-400 pl-2 md:pl-4">黑市宝可梦 (BLACK MARKET POKEMON)</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
                   {shopPokemon.map((pokemon, i) => {
                     const price = getPrice(pokemon.price || 500);
                     return (
-                      <div key={pokemon.id || i} className="flex flex-col items-center gap-4 bg-white/5 p-6 rounded-3xl border border-white/10 hover:border-purple-500/30 transition-all group relative">
+                      <div key={pokemon.id || i} className="flex flex-col items-center gap-2 md:gap-4 bg-white/5 p-4 md:p-6 rounded-2xl md:rounded-3xl border border-white/10 hover:border-purple-500/30 transition-all group relative">
                         <SafeImage 
                           src={pokemon.img} 
                           alt={pokemon.name} 
-                          className="w-32 h-32 object-contain drop-shadow-2xl" 
+                          className="w-24 h-24 md:w-32 md:h-32 object-contain drop-shadow-2xl" 
                           cdnIndex={cdnIndex} 
                           pokemonId={pokemon.id}
                         />
@@ -3294,28 +3306,28 @@ export default function App() {
   };
 
   const renderRest = () => (
-    <div className="h-full w-full bg-[#05050a] p-8 text-white flex flex-col items-center justify-center">
-      <div className="mb-12 text-center">
-        <h2 className="text-6xl font-black italic tracking-tighter text-green-400 mb-2 glitch-text">数据碎片整理</h2>
-        <p className="font-mono text-xs opacity-60 uppercase tracking-[0.4em]">选择一项维护操作</p>
+    <div className="h-full w-full bg-[#05050a] p-4 md:p-8 text-white flex flex-col items-center justify-center overflow-y-auto custom-scrollbar">
+      <div className="mb-8 md:mb-12 text-center">
+        <h2 className="text-4xl md:text-6xl font-black italic tracking-tighter text-green-400 mb-2 glitch-text">数据碎片整理</h2>
+        <p className="font-mono text-[10px] md:text-xs opacity-60 uppercase tracking-[0.2em] md:tracking-[0.4em]">选择一项维护操作</p>
       </div>
 
-      <div className="flex gap-12">
+      <div className="flex flex-col md:flex-row gap-6 md:gap-12">
         <motion.div 
-          whileHover={{ scale: 1.1 }}
+          whileHover={{ scale: 1.05 }}
           onClick={() => {
             setPlayer(p => p ? { ...p, hp: Math.min(p.maxHp, p.hp + Math.floor(p.maxHp * 0.5)) } : null);
             setPhase('MAP');
           }}
-          className="w-64 h-64 border-2 border-green-500/30 bg-green-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-green-400 transition-all group"
+          className="w-full max-w-[250px] md:w-64 h-48 md:h-64 border-2 border-green-500/30 bg-green-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-green-400 transition-all group"
         >
-          <Activity className="w-16 h-16 text-green-400 mb-4 group-hover:animate-pulse" />
-          <h3 className="text-xl font-black italic uppercase">系统修复</h3>
-          <p className="text-[10px] opacity-60 mt-2">恢复 50% 系统完整度</p>
+          <Activity className="w-12 h-12 md:w-16 md:h-16 text-green-400 mb-2 md:mb-4 group-hover:animate-pulse" />
+          <h3 className="text-lg md:text-xl font-black italic uppercase">系统修复</h3>
+          <p className="text-[10px] opacity-60 mt-1 md:mt-2">恢复 50% 系统完整度</p>
         </motion.div>
 
         <motion.div 
-          whileHover={{ scale: 1.1 }}
+          whileHover={{ scale: 1.05 }}
           onClick={() => {
             // Simple upgrade logic: pick a random card in permanent deck and add +3 damage or +3 shield
             setPermanentDeck(prev => {
@@ -3331,11 +3343,11 @@ export default function App() {
             });
             setPhase('MAP');
           }}
-          className="w-64 h-64 border-2 border-cyan-500/30 bg-cyan-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-cyan-400 transition-all group"
+          className="w-full max-w-[250px] md:w-64 h-48 md:h-64 border-2 border-cyan-500/30 bg-cyan-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-cyan-400 transition-all group"
         >
-          <Zap className="w-16 h-16 text-cyan-400 mb-4 group-hover:animate-pulse" />
-          <h3 className="text-xl font-black italic uppercase">内核优化</h3>
-          <p className="text-[10px] opacity-60 mt-2">随机强化背包系统中的一张卡牌</p>
+          <Zap className="w-12 h-12 md:w-16 md:h-16 text-cyan-400 mb-2 md:mb-4 group-hover:animate-pulse" />
+          <h3 className="text-lg md:text-xl font-black italic uppercase">内核优化</h3>
+          <p className="text-[10px] opacity-60 mt-1 md:mt-2 text-center px-4">随机强化背包系统中的一张卡牌</p>
         </motion.div>
       </div>
     </div>
@@ -3347,14 +3359,14 @@ export default function App() {
       <motion.h2 
         initial={{ scale: 0.5, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="text-8xl font-black italic tracking-tighter mb-4 text-red-500 drop-shadow-[0_0_30px_rgba(255,0,0,0.5)]"
+        className="text-5xl md:text-8xl font-black italic tracking-tighter mb-4 text-red-500 drop-shadow-[0_0_30px_rgba(255,0,0,0.5)] text-center"
       >
         系统崩溃 (CRASH)
       </motion.h2>
-      <p className="font-mono text-xs tracking-[0.5em] text-red-400/60 uppercase mb-12">连接已断开，数据已上传至 HUB</p>
+      <p className="font-mono text-[10px] md:text-xs tracking-[0.2em] md:tracking-[0.5em] text-red-400/60 uppercase mb-8 md:mb-12 text-center">连接已断开，数据已上传至 HUB</p>
       <button 
         onClick={() => setPhase('HUB')}
-        className="px-12 py-4 bg-transparent border-2 border-red-500 text-red-400 font-black uppercase tracking-widest hover:bg-red-500 hover:text-black transition-all shadow-[0_0_30px_rgba(255,0,0,0.2)]"
+        className="px-8 md:px-12 py-3 md:py-4 bg-transparent border-2 border-red-500 text-red-400 text-sm md:text-base font-black uppercase tracking-widest hover:bg-red-500 hover:text-black transition-all shadow-[0_0_30px_rgba(255,0,0,0.2)]"
       >
         返回作战中心
       </button>
@@ -3368,14 +3380,14 @@ export default function App() {
         <motion.h2 
           initial={{ scale: 0, rotate: -180 }}
           animate={{ scale: 1, rotate: 0 }}
-          className="text-8xl font-black italic tracking-tighter text-cyan-400 mb-4 glitch-text"
+          className="text-5xl md:text-8xl font-black italic tracking-tighter text-cyan-400 mb-4 glitch-text"
         >
           防火墙已突破
         </motion.h2>
-        <p className="font-mono text-sm tracking-[0.8em] text-cyan-400 uppercase mb-12">最高权限已获得 // 任务完成</p>
+        <p className="font-mono text-[10px] md:text-sm tracking-[0.2em] md:tracking-[0.8em] text-cyan-400 uppercase mb-8 md:mb-12">最高权限已获得 // 任务完成</p>
         <button 
           onClick={() => window.location.reload()}
-          className="px-12 py-4 bg-cyan-600 text-white font-black uppercase tracking-widest hover:bg-cyan-500 transition-all shadow-[0_0_30px_rgba(0,255,255,0.5)]"
+          className="px-8 md:px-12 py-3 md:py-4 bg-cyan-600 text-white text-sm md:text-base font-black uppercase tracking-widest hover:bg-cyan-500 transition-all shadow-[0_0_30px_rgba(0,255,255,0.5)]"
         >
           返回主界面
         </button>
@@ -3406,27 +3418,27 @@ export default function App() {
           boxShadow: '0 0 30px rgba(0,255,255,0.3)'
         } : (options?.isStatic ? {} : { scale: 1.02 })}
         onClick={options?.onClick || (options?.isStatic ? undefined : () => executeCard(card))}
-        className={`relative w-36 h-52 rounded-xl border-2 p-3 flex flex-col cursor-pointer transition-all duration-300
+        className={`relative w-28 md:w-36 h-40 md:h-52 rounded-xl border-2 p-2 md:p-3 flex flex-col cursor-pointer transition-all duration-300 shrink-0
           ${typeColors[card.type]} ${isPlayable || options?.isStatic ? 'hover:border-cyan-400' : 'opacity-40 grayscale cursor-not-allowed'}
           backdrop-blur-xl overflow-hidden group`}
       >
         {/* Card Scanline */}
         <div className="absolute inset-0 opacity-10 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%)] bg-[length:100%_4px]" />
         
-        <div className="flex justify-between items-start mb-2 relative z-10">
-          <span className="text-[9px] font-black uppercase tracking-widest opacity-70">{card.type}</span>
-          <div className="w-7 h-7 rounded-full bg-black/60 flex items-center justify-center font-black text-sm border border-white/20 text-white shadow-inner">
+        <div className="flex justify-between items-start mb-1 md:mb-2 relative z-10">
+          <span className="text-[7px] md:text-[9px] font-black uppercase tracking-widest opacity-70">{card.type}</span>
+          <div className="w-5 h-5 md:w-7 md:h-7 rounded-full bg-black/60 flex items-center justify-center font-black text-xs md:text-sm border border-white/20 text-white shadow-inner">
             {card.cost}
           </div>
         </div>
         
         <div className="flex-1 flex flex-col items-center justify-center text-center relative z-10">
-          <h3 className="font-black italic text-sm mb-2 uppercase tracking-tight group-hover:scale-110 transition-transform">{card.name}</h3>
-          <div className="w-full h-px bg-white/10 mb-2" />
-          <p className="text-[10px] leading-tight opacity-90 font-mono px-1">{card.desc}</p>
+          <h3 className="font-black italic text-xs md:text-sm mb-1 md:mb-2 uppercase tracking-tight group-hover:scale-110 transition-transform">{card.name}</h3>
+          <div className="w-full h-px bg-white/10 mb-1 md:mb-2" />
+          <p className="text-[8px] md:text-[10px] leading-tight opacity-90 font-mono px-1">{card.desc}</p>
         </div>
 
-        <div className="mt-auto flex justify-between items-center opacity-40 text-[7px] font-mono relative z-10">
+        <div className="mt-auto flex justify-between items-center opacity-40 text-[5px] md:text-[7px] font-mono relative z-10">
           <span className="flex items-center gap-1"><Database className="w-2 h-2" /> {card.rarity}</span>
           <span>V-PROTOCOL</span>
         </div>
@@ -3444,24 +3456,24 @@ export default function App() {
     const equippedCount = permanentDeck.filter(c => c.isEquipped !== false).length;
     
     return (
-      <div className="h-full w-full bg-[#05050a] p-8 text-white flex flex-col items-center overflow-y-auto no-scrollbar relative">
+      <div className="h-full w-full bg-[#05050a] p-4 md:p-8 text-white flex flex-col items-center overflow-y-auto no-scrollbar relative">
         <button 
           onClick={() => setPhase('HUB')}
-          className="absolute top-8 right-8 p-2 border border-white/20 rounded-full hover:bg-white/10 transition-all z-50"
+          className="absolute top-4 md:top-8 right-4 md:right-8 p-2 border border-white/20 rounded-full hover:bg-white/10 transition-all z-50"
         >
-          <Trash2 className="w-6 h-6 text-white/40 rotate-45" />
+          <Trash2 className="w-5 h-5 md:w-6 md:h-6 text-white/40 rotate-45" />
         </button>
 
-        <div className="mb-12 text-center">
-          <h2 className="text-6xl font-black italic tracking-tighter text-purple-400 mb-2 glitch-text">背包系统 (BACKPACK)</h2>
+        <div className="mb-8 md:mb-12 text-center mt-12 md:mt-0">
+          <h2 className="text-4xl md:text-6xl font-black italic tracking-tighter text-purple-400 mb-2 glitch-text">背包系统 (BACKPACK)</h2>
           <div className="flex flex-col items-center gap-2">
-            <p className="font-mono text-xs opacity-60 uppercase tracking-[0.4em]">当前加载的协议数量: {permanentDeck.length}</p>
-            <p className="font-mono text-[10px] text-cyan-400 uppercase tracking-[0.2em]">已装载战斗协议: {equippedCount} / {permanentDeck.length}</p>
-            <p className="text-[10px] text-white/40 italic mt-2">点击卡牌切换装载状态 (至少保留5张以保证系统运行)</p>
+            <p className="font-mono text-[10px] md:text-xs opacity-60 uppercase tracking-[0.2em] md:tracking-[0.4em]">当前加载的协议数量: {permanentDeck.length}</p>
+            <p className="font-mono text-[8px] md:text-[10px] text-cyan-400 uppercase tracking-[0.1em] md:tracking-[0.2em]">已装载战斗协议: {equippedCount} / {permanentDeck.length}</p>
+            <p className="text-[8px] md:text-[10px] text-white/40 italic mt-1 md:mt-2">点击卡牌切换装载状态 (至少保留5张以保证系统运行)</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6 max-w-7xl mx-auto mb-24">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6 max-w-7xl mx-auto mb-24">
           {permanentDeck?.map((card, i) => {
             const isEquipped = card.isEquipped !== false;
             return (
@@ -3569,60 +3581,62 @@ export default function App() {
         <motion.div 
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="bg-[#0a0a15] border-2 border-purple-500/50 p-6 rounded-2xl w-full max-w-md relative overflow-hidden"
+          className="bg-[#0a0a15] border-2 border-purple-500/50 p-4 md:p-6 rounded-2xl w-full max-w-md relative overflow-hidden max-h-[90vh] flex flex-col"
         >
           <div className="absolute inset-0 opacity-5 pointer-events-none bg-[radial-gradient(circle_at_center,#a855f7_0%,transparent_70%)]" />
-          <div className="flex justify-between items-center mb-6 relative z-10">
-            <h2 className="text-2xl font-black italic tracking-tighter text-purple-400 uppercase">终端切换 (TERMINAL SWITCH)</h2>
+          <div className="flex justify-between items-center mb-4 md:mb-6 relative z-10 shrink-0">
+            <h2 className="text-xl md:text-2xl font-black italic tracking-tighter text-purple-400 uppercase">终端切换 (TERMINAL SWITCH)</h2>
             <button onClick={() => setShowPartySwitch(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
-              <X className="w-6 h-6" />
+              <X className="w-5 h-5 md:w-6 md:h-6" />
             </button>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 relative z-10">
+          <div className="grid grid-cols-1 gap-2 md:gap-3 relative z-10 overflow-y-auto custom-scrollbar pr-2">
             {party?.map((p, idx) => (
               <div 
                 key={`${p.id}-${idx}`}
-                className={`p-3 border rounded-xl flex items-center gap-4 transition-all ${idx === activePokemonIndex ? 'bg-purple-500/20 border-purple-500' : 'bg-white/5 border-white/10 hover:border-purple-500/50'}`}
+                className={`p-2 md:p-3 border rounded-xl flex items-center gap-2 md:gap-4 transition-all ${idx === activePokemonIndex ? 'bg-purple-500/20 border-purple-500' : 'bg-white/5 border-white/10 hover:border-purple-500/50'}`}
               >
                 <SafeImage 
                   src={p.img} 
                   alt={p.name} 
-                  className="w-12 h-12 object-contain" 
+                  className="w-10 h-10 md:w-12 md:h-12 object-contain shrink-0" 
                   cdnIndex={cdnIndex} 
                   pokemonId={p.id}
                 />
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-center">
-                    <div className="font-black text-sm uppercase tracking-wide" style={{ color: p.color }}>{p.name}</div>
-                    <div className="text-[10px] font-black text-yellow-400">LVL {p.level}</div>
+                    <div className="font-black text-xs md:text-sm uppercase tracking-wide truncate" style={{ color: p.color }}>{p.name}</div>
+                    <div className="text-[8px] md:text-[10px] font-black text-yellow-400 shrink-0 ml-2">LVL {p.level}</div>
                   </div>
-                  <div className="h-2 bg-white/5 rounded-full overflow-hidden border border-white/10 mt-1">
+                  <div className="h-1.5 md:h-2 bg-white/5 rounded-full overflow-hidden border border-white/10 mt-1">
                     <div className="h-full bg-gradient-to-r from-cyan-500 to-blue-600" style={{ width: `${(p.hp / p.maxHp) * 100}%` }} />
                   </div>
                   <div className="h-1 bg-white/5 rounded-full overflow-hidden mt-1">
                     <div className="h-full bg-yellow-400" style={{ width: `${(p.xp / p.nextXp) * 100}%` }} />
                   </div>
-                  <div className="flex justify-between text-[8px] font-mono opacity-60 mt-1">
+                  <div className="flex justify-between text-[6px] md:text-[8px] font-mono opacity-60 mt-1">
                     <span>HP: {p.hp} / {p.maxHp}</span>
                     <span>XP: {p.xp} / {p.nextXp}</span>
                   </div>
                 </div>
-                {idx === activePokemonIndex ? (
-                  <div className="px-3 py-1 bg-purple-500 text-black font-black text-[10px] rounded uppercase">当前 (ACTIVE)</div>
-                ) : (
-                  <button 
-                    onClick={() => switchPokemon(idx)}
-                    disabled={p.hp <= 0 || turn !== 'PLAYER' || isAnimating}
-                    className="px-3 py-1 bg-purple-500/20 text-purple-400 border border-purple-500/50 font-black text-[10px] rounded hover:bg-purple-500 hover:text-black disabled:opacity-50 transition-all uppercase"
-                  >
-                    切换 (SWAP)
-                  </button>
-                )}
+                <div className="shrink-0">
+                  {idx === activePokemonIndex ? (
+                    <div className="px-2 md:px-3 py-1 bg-purple-500 text-black font-black text-[8px] md:text-[10px] rounded uppercase">当前 (ACTIVE)</div>
+                  ) : (
+                    <button 
+                      onClick={() => switchPokemon(idx)}
+                      disabled={p.hp <= 0 || turn !== 'PLAYER' || isAnimating}
+                      className="px-2 md:px-3 py-1 bg-purple-500/20 text-purple-400 border border-purple-500/50 font-black text-[8px] md:text-[10px] rounded hover:bg-purple-500 hover:text-black disabled:opacity-50 transition-all uppercase"
+                    >
+                      切换 (SWAP)
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
-          <div className="mt-4 text-[10px] font-mono opacity-40 text-center uppercase">切换终端消耗 1 点算力 (COSTS 1 ENERGY)</div>
+          <div className="mt-4 text-[8px] md:text-[10px] font-mono opacity-40 text-center uppercase shrink-0">切换终端消耗 1 点算力 (COSTS 1 ENERGY)</div>
         </motion.div>
       </div>
     );
@@ -3679,8 +3693,8 @@ export default function App() {
           </AnimatePresence>
 
           {/* Top Bar: Enemy */}
-          <div className="p-6 flex justify-between items-start relative z-20">
-            <div className="flex flex-col gap-2 w-64">
+          <div className="p-4 md:p-6 flex flex-col md:flex-row justify-between items-start md:items-start gap-4 md:gap-0 relative z-20">
+            <div className="flex flex-col gap-2 w-full md:w-64">
               <div className="flex justify-between items-end">
                 <span className="text-xs font-mono opacity-60 uppercase tracking-widest">敌方协议 (ENEMY PROTOCOL)</span>
                 <span className="text-xl font-black italic" style={{ color: enemy?.color }}>{enemy?.name}</span>
@@ -3704,12 +3718,12 @@ export default function App() {
               </div>
             </div>
 
-            <div className="flex flex-col items-end gap-2">
-               <div className="flex items-center gap-2">
+            <div className="flex flex-col items-start md:items-end gap-2 w-full md:w-auto">
+               <div className="flex items-center gap-2 w-full justify-between md:justify-end">
                  <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${turn === 'PLAYER' ? 'border-cyan-400 text-cyan-400 bg-cyan-950/40 animate-pulse' : 'border-red-400 text-red-400 bg-red-950/40'}`}>
                    {turn === 'PLAYER' ? '玩家回合 (PLAYER TURN)' : '敌方回合 (ENEMY TURN)'}
                  </div>
-                 <div className="text-[10px] font-mono opacity-40 uppercase">System Time: {new Date().toLocaleTimeString()}</div>
+                 <div className="text-[10px] font-mono opacity-40 uppercase hidden md:block">System Time: {new Date().toLocaleTimeString()}</div>
                </div>
                <div className="flex gap-2 mb-2">
                   {relics?.map(r => (
@@ -3736,7 +3750,7 @@ export default function App() {
           </div>
 
           {/* Battle Arena */}
-          <div className="flex-1 flex items-center justify-around relative px-12">
+          <div className="flex-1 flex flex-col md:flex-row items-center justify-center md:justify-around relative px-4 md:px-12 gap-8 md:gap-0">
             {/* Skill Name Overlay */}
             <AnimatePresence>
               {activeSkillName && (
@@ -3746,65 +3760,19 @@ export default function App() {
                   exit={{ opacity: 0, x: 50, scale: 0.9 }}
                   className="absolute top-1/4 left-1/2 -translate-x-1/2 z-[100] pointer-events-none"
                 >
-                  <div className="bg-black/60 border border-cyan-500/50 rounded-full backdrop-blur-sm px-8 py-2 shadow-[0_0_30px_rgba(0,255,255,0.2)] flex items-center gap-4">
-                    <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                    <div className="text-xl font-black italic tracking-wider text-white uppercase whitespace-nowrap">
+                  <div className="bg-black/60 border border-cyan-500/50 rounded-full backdrop-blur-sm px-4 md:px-8 py-2 shadow-[0_0_30px_rgba(0,255,255,0.2)] flex items-center gap-2 md:gap-4">
+                    <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-cyan-400 animate-pulse" />
+                    <div className="text-sm md:text-xl font-black italic tracking-wider text-white uppercase whitespace-nowrap">
                       {activeSkillName}
                     </div>
-                    <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                    <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-cyan-400 animate-pulse" />
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {/* Player Character */}
-            <div className="relative flex flex-col items-center">
-              <AnimatePresence>
-                {playerDialogue && <SpeechBubble text={playerDialogue} side="left" />}
-              </AnimatePresence>
-              <motion.div
-                animate={
-                  playerAnimation === 'attack' ? { x: [0, 150, 0], scale: [1, 1.2, 1] } :
-                  playerAnimation === 'hit' ? { x: [-5, 5, -5, 5, 0], filter: ['brightness(1)', 'brightness(2)', 'brightness(1)'] } :
-                  playerAnimation === 'skill' ? { y: [-10, 0], scale: [1, 1.1, 1], filter: ['hue-rotate(0deg)', 'hue-rotate(180deg)', 'hue-rotate(0deg)'] } :
-                  { y: [0, -10, 0] }
-                }
-                transition={
-                  playerAnimation === 'idle' ? { duration: 3, repeat: Infinity, ease: "easeInOut" } :
-                  { duration: 0.5 }
-                }
-                className="relative"
-              >
-                <SafeImage 
-                  src={player?.img || ''} 
-                  alt={player?.name || ''} 
-                  className="w-64 h-64 object-contain drop-shadow-[0_0_50px_rgba(255,255,255,0.2)]" 
-                  cdnIndex={cdnIndex}
-                />
-                {activeVfx?.target === 'PLAYER' && (
-                  <motion.div 
-                    initial={{ scale: 0, opacity: 0, rotate: 0 }}
-                    animate={{ scale: [0, 2, 1.5], opacity: [0, 1, 0], rotate: [0, 90, 180] }}
-                    transition={{ duration: 0.6 }}
-                    className="absolute inset-0 flex items-center justify-center pointer-events-none"
-                  >
-                    <div className={`vfx-${activeVfx.type}`} />
-                  </motion.div>
-                )}
-              </motion.div>
-              <div className="mt-4 flex flex-col items-center">
-                <span className="text-xl font-black italic uppercase tracking-tighter" style={{ color: player?.color }}>{player?.name}</span>
-                <div className="flex gap-1 mt-2">
-                  {player?.statusEffects?.map((s, i) => <StatusIcon key={i} effect={s} />)}
-                </div>
-              </div>
-            </div>
-
-            {/* VS Divider */}
-            <div className="text-6xl font-black italic opacity-10 tracking-tighter select-none">VS</div>
-
-            {/* Enemy Character */}
-            <div className="relative flex flex-col items-center">
+            {/* Enemy Character (Top on mobile) */}
+            <div className="relative flex flex-col items-center order-1 md:order-3">
               <AnimatePresence>
                 {enemyDialogue && <SpeechBubble text={enemyDialogue} side="right" />}
               </AnimatePresence>
@@ -3825,7 +3793,7 @@ export default function App() {
                 <SafeImage 
                   src={enemy?.img || ''} 
                   alt={enemy?.name || ''} 
-                  className={`w-64 h-64 object-contain drop-shadow-[0_0_50px_rgba(255,0,0,0.2)] ${isCapturing ? 'capture-shake' : ''}`} 
+                  className={`w-32 h-32 md:w-64 md:h-64 object-contain drop-shadow-[0_0_50px_rgba(255,0,0,0.2)] ${isCapturing ? 'capture-shake' : ''}`} 
                   cdnIndex={cdnIndex}
                 />
                 {activeVfx?.target === 'ENEMY' && (
@@ -3839,20 +3807,66 @@ export default function App() {
                   </motion.div>
                 )}
               </motion.div>
-              <div className="mt-4 flex flex-col items-center">
-                <span className="text-xl font-black italic uppercase tracking-tighter" style={{ color: enemy?.color }}>{enemy?.name}</span>
-                <div className="flex gap-1 mt-2">
+              <div className="mt-2 md:mt-4 flex flex-col items-center">
+                <span className="text-sm md:text-xl font-black italic uppercase tracking-tighter" style={{ color: enemy?.color }}>{enemy?.name}</span>
+                <div className="flex gap-1 mt-1 md:mt-2">
                   {enemy?.statusEffects?.map((s, i) => <StatusIcon key={i} effect={s} />)}
+                </div>
+              </div>
+            </div>
+
+            {/* VS Divider */}
+            <div className="text-3xl md:text-6xl font-black italic opacity-10 tracking-tighter select-none order-2 my-2 md:my-0">VS</div>
+
+            {/* Player Character (Bottom on mobile) */}
+            <div className="relative flex flex-col items-center order-3 md:order-1">
+              <AnimatePresence>
+                {playerDialogue && <SpeechBubble text={playerDialogue} side="left" />}
+              </AnimatePresence>
+              <motion.div
+                animate={
+                  playerAnimation === 'attack' ? { x: [0, 150, 0], scale: [1, 1.2, 1] } :
+                  playerAnimation === 'hit' ? { x: [-5, 5, -5, 5, 0], filter: ['brightness(1)', 'brightness(2)', 'brightness(1)'] } :
+                  playerAnimation === 'skill' ? { y: [-10, 0], scale: [1, 1.1, 1], filter: ['hue-rotate(0deg)', 'hue-rotate(180deg)', 'hue-rotate(0deg)'] } :
+                  { y: [0, -10, 0] }
+                }
+                transition={
+                  playerAnimation === 'idle' ? { duration: 3, repeat: Infinity, ease: "easeInOut" } :
+                  { duration: 0.5 }
+                }
+                className="relative"
+              >
+                <SafeImage 
+                  src={player?.img || ''} 
+                  alt={player?.name || ''} 
+                  className="w-32 h-32 md:w-64 md:h-64 object-contain drop-shadow-[0_0_50px_rgba(255,255,255,0.2)]" 
+                  cdnIndex={cdnIndex}
+                />
+                {activeVfx?.target === 'PLAYER' && (
+                  <motion.div 
+                    initial={{ scale: 0, opacity: 0, rotate: 0 }}
+                    animate={{ scale: [0, 2, 1.5], opacity: [0, 1, 0], rotate: [0, 90, 180] }}
+                    transition={{ duration: 0.6 }}
+                    className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                  >
+                    <div className={`vfx-${activeVfx.type}`} />
+                  </motion.div>
+                )}
+              </motion.div>
+              <div className="mt-2 md:mt-4 flex flex-col items-center">
+                <span className="text-sm md:text-xl font-black italic uppercase tracking-tighter" style={{ color: player?.color }}>{player?.name}</span>
+                <div className="flex gap-1 mt-1 md:mt-2">
+                  {player?.statusEffects?.map((s, i) => <StatusIcon key={i} effect={s} />)}
                 </div>
               </div>
             </div>
           </div>
 
           {/* Bottom Bar: Player */}
-          <div className="p-6 bg-gradient-to-t from-black to-transparent relative z-20">
+          <div className="p-4 md:p-6 bg-gradient-to-t from-black to-transparent relative z-20">
             <div className="max-w-6xl mx-auto flex flex-col gap-4">
-              <div className="flex justify-between items-end">
-                <div className="flex flex-col gap-2 w-64">
+              <div className="flex flex-col md:flex-row justify-between items-center md:items-end gap-4 md:gap-0">
+                <div className="flex flex-col gap-2 w-full md:w-64">
                   <div className="flex justify-between items-end">
                     <span className="text-xl font-black italic" style={{ color: player?.color }}>{player?.name}</span>
                     <span className="text-[10px] font-mono opacity-60 uppercase tracking-widest">系统完整度 (INTEGRITY)</span>
@@ -3891,8 +3905,8 @@ export default function App() {
                 </div>
 
                 {/* Energy Display */}
-                <div className="flex flex-col items-center">
-                  <div className="text-[10px] font-mono opacity-60 uppercase mb-1 flex items-center gap-2">
+                <div className="flex flex-row md:flex-col items-center gap-4 md:gap-0 w-full md:w-auto justify-between md:justify-center">
+                  <div className="text-[10px] font-mono opacity-60 uppercase md:mb-1 flex items-center gap-2">
                     <Zap className="w-3 h-3 text-cyan-400" />
                     {TERMINOLOGY.ENERGY}
                   </div>
@@ -3905,7 +3919,7 @@ export default function App() {
                           scale: i < player!.energy ? [1, 1.1, 1] : 1,
                           opacity: i < player!.energy ? 1 : 0.2
                         }}
-                        className={`w-4 h-10 skew-x-[-20deg] border-2 transition-all duration-500 ${i < player!.energy ? 'bg-cyan-500 border-cyan-400 shadow-[0_0_15px_#00ffff]' : 'bg-transparent border-white/10'}`} 
+                        className={`w-3 md:w-4 h-8 md:h-10 skew-x-[-20deg] border-2 transition-all duration-500 ${i < player!.energy ? 'bg-cyan-500 border-cyan-400 shadow-[0_0_15px_#00ffff]' : 'bg-transparent border-white/10'}`} 
                       />
                     ))}
                   </div>
@@ -3914,14 +3928,14 @@ export default function App() {
                 <button 
                   onClick={endPlayerTurn}
                   disabled={turn !== 'PLAYER' || isAnimating}
-                  className="px-8 py-3 bg-pink-600 border-2 border-pink-400 font-black italic uppercase tracking-tighter hover:bg-pink-500 disabled:opacity-30 disabled:grayscale transition-all shadow-[0_0_20px_rgba(255,0,255,0.3)]"
+                  className="w-full md:w-auto px-8 py-3 bg-pink-600 border-2 border-pink-400 font-black italic uppercase tracking-tighter hover:bg-pink-500 disabled:opacity-30 disabled:grayscale transition-all shadow-[0_0_20px_rgba(255,0,255,0.3)]"
                 >
                   {TERMINOLOGY.END_TURN}
                 </button>
               </div>
 
               {/* Hand */}
-              <div className="flex justify-center gap-2 h-64 items-end pb-4">
+              <div className="flex justify-start md:justify-center gap-2 h-48 md:h-64 items-end pb-4 overflow-x-auto no-scrollbar snap-x">
                 <AnimatePresence>
                   {hand?.map((card, i) => renderCard(card, i))}
                 </AnimatePresence>
@@ -4000,26 +4014,26 @@ export default function App() {
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="bg-[#0a0a15] border-2 border-pink-500/30 rounded-3xl w-full max-w-xl overflow-hidden shadow-[0_0_100px_rgba(236,72,153,0.2)]"
+        className="bg-[#0a0a15] border-2 border-pink-500/30 rounded-3xl w-full max-w-xl overflow-hidden shadow-[0_0_100px_rgba(236,72,153,0.2)] flex flex-col max-h-[90vh]"
       >
-        <div className="p-6 border-b border-white/10 flex justify-between items-center bg-pink-950/20">
-          <div className="flex items-center gap-3">
-            <Gift className="w-8 h-8 text-pink-400" />
-            <h3 className="text-3xl font-black italic text-pink-400 uppercase tracking-tighter">协议抽奖 (GACHA TERMINAL)</h3>
+        <div className="p-4 md:p-6 border-b border-white/10 flex justify-between items-center bg-pink-950/20 shrink-0">
+          <div className="flex items-center gap-2 md:gap-3">
+            <Gift className="w-6 h-6 md:w-8 md:h-8 text-pink-400" />
+            <h3 className="text-xl md:text-3xl font-black italic text-pink-400 uppercase tracking-tighter">协议抽奖 (GACHA TERMINAL)</h3>
           </div>
           <button onClick={() => setShowGacha(false)} className="text-white/40 hover:text-white transition-colors">
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5 md:w-6 md:h-6" />
           </button>
         </div>
 
-        <div className="p-12 flex flex-col items-center justify-center min-h-[400px]">
-          <div className="relative mb-12">
+        <div className="p-6 md:p-12 flex flex-col items-center justify-center min-h-[300px] md:min-h-[400px] overflow-y-auto custom-scrollbar">
+          <div className="relative mb-8 md:mb-12">
             <motion.div
               animate={isGachaSpinning ? { rotate: 360 } : { rotate: 0 }}
               transition={isGachaSpinning ? { repeat: Infinity, duration: 0.5, ease: "linear" } : {}}
-              className="w-48 h-48 rounded-full border-8 border-dashed border-pink-500/30 flex items-center justify-center"
+              className="w-32 h-32 md:w-48 md:h-48 rounded-full border-4 md:border-8 border-dashed border-pink-500/30 flex items-center justify-center"
             >
-              <Disc className={`w-24 h-24 ${isGachaSpinning ? 'text-pink-400 animate-pulse' : 'text-white/20'}`} />
+              <Disc className={`w-16 h-16 md:w-24 md:h-24 ${isGachaSpinning ? 'text-pink-400 animate-pulse' : 'text-white/20'}`} />
             </motion.div>
             
             <AnimatePresence>
@@ -4030,8 +4044,8 @@ export default function App() {
                   exit={{ scale: 0, opacity: 0 }}
                   className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 rounded-full backdrop-blur-sm border-2 border-pink-500"
                 >
-                  <div className="text-pink-400 font-black text-xs uppercase mb-1">获得奖励!</div>
-                  <div className="text-xl font-black text-white text-center px-4">
+                  <div className="text-pink-400 font-black text-[10px] md:text-xs uppercase mb-1">获得奖励!</div>
+                  <div className="text-sm md:text-xl font-black text-white text-center px-2 md:px-4">
                     {gachaResult.type === 'ITEM' && gachaResult.data.name}
                     {gachaResult.type === 'GOLD' && `+${gachaResult.data} 信用点`}
                     {gachaResult.type === 'RELIC' && gachaResult.data.name}
@@ -4042,15 +4056,15 @@ export default function App() {
             </AnimatePresence>
           </div>
 
-          <div className="text-center mb-8">
-            <p className="text-white/40 font-mono text-xs uppercase tracking-widest mb-2">可用抽奖机会 (AVAILABLE TICKETS)</p>
-            <div className="text-5xl font-black text-white italic">{gachaTickets}</div>
+          <div className="text-center mb-6 md:mb-8">
+            <p className="text-white/40 font-mono text-[10px] md:text-xs uppercase tracking-widest mb-1 md:mb-2">可用抽奖机会 (AVAILABLE TICKETS)</p>
+            <div className="text-4xl md:text-5xl font-black text-white italic">{gachaTickets}</div>
           </div>
 
           <button
             onClick={handleGachaSpin}
             disabled={gachaTickets < 1 || isGachaSpinning}
-            className={`w-full py-6 rounded-2xl font-black text-xl uppercase tracking-widest transition-all ${
+            className={`w-full py-4 md:py-6 rounded-2xl font-black text-lg md:text-xl uppercase tracking-widest transition-all ${
               gachaTickets < 1 || isGachaSpinning
                 ? 'bg-white/5 text-white/20 border border-white/10 cursor-not-allowed'
                 : 'bg-pink-500 text-black hover:bg-pink-400 shadow-[0_0_30px_rgba(236,72,153,0.4)]'
@@ -4059,7 +4073,7 @@ export default function App() {
             {isGachaSpinning ? '正在解析协议...' : '启动抽奖 (SPIN)'}
           </button>
           
-          <p className="mt-6 text-[10px] text-white/30 font-mono uppercase text-center">
+          <p className="mt-4 md:mt-6 text-[8px] md:text-[10px] text-white/30 font-mono uppercase text-center">
             击败病毒程序可获得抽奖机会 // 奖励包含稀有道具、信用点与遗物
           </p>
         </div>
@@ -4072,44 +4086,44 @@ export default function App() {
       <motion.div
         initial={{ scale: 0.9, y: 20 }}
         animate={{ scale: 1, y: 0 }}
-        className="bg-[#0a0a15] border-2 border-emerald-500/30 rounded-3xl w-full max-w-2xl overflow-hidden shadow-[0_0_50px_rgba(16,185,129,0.1)]"
+        className="bg-[#0a0a15] border-2 border-emerald-500/30 rounded-3xl w-full max-w-2xl overflow-hidden shadow-[0_0_50px_rgba(16,185,129,0.1)] flex flex-col max-h-[90vh]"
       >
-        <div className="p-6 border-b border-white/10 flex justify-between items-center bg-emerald-950/20">
-          <h3 className="text-3xl font-black italic text-emerald-400 uppercase tracking-tighter">系统自检 (DIAGNOSTIC)</h3>
+        <div className="p-4 md:p-6 border-b border-white/10 flex justify-between items-center bg-emerald-950/20 shrink-0">
+          <h3 className="text-xl md:text-3xl font-black italic text-emerald-400 uppercase tracking-tighter">系统自检 (DIAGNOSTIC)</h3>
           <button onClick={() => setShowDiagnostic(false)} className="text-white/40 hover:text-white transition-colors">
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5 md:w-6 md:h-6" />
           </button>
         </div>
         
-        <div className="p-8">
+        <div className="p-4 md:p-8 overflow-y-auto custom-scrollbar">
           {diagnosticStep === 'CHOICE' && (
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               <button 
                 onClick={() => handleDiagnostic('REPAIR')}
-                className="p-6 border-2 border-white/10 rounded-2xl bg-white/5 hover:border-emerald-500/50 hover:bg-emerald-500/10 transition-all group text-center"
+                className="p-4 md:p-6 border-2 border-white/10 rounded-2xl bg-white/5 hover:border-emerald-500/50 hover:bg-emerald-500/10 transition-all group text-center"
               >
-                <HeartPulse className="w-12 h-12 text-emerald-400 mx-auto mb-4 group-hover:animate-pulse" />
-                <h4 className="font-black italic text-xl uppercase">全面修复</h4>
-                <p className="text-xs text-white/40 mt-2">恢复所有系统完整度</p>
-                <div className="mt-4 text-yellow-400 font-mono">COST: 50 CREDITS</div>
+                <HeartPulse className="w-8 h-8 md:w-12 md:h-12 text-emerald-400 mx-auto mb-2 md:mb-4 group-hover:animate-pulse" />
+                <h4 className="font-black italic text-lg md:text-xl uppercase">全面修复</h4>
+                <p className="text-[10px] md:text-xs text-white/40 mt-1 md:mt-2">恢复所有系统完整度</p>
+                <div className="mt-2 md:mt-4 text-yellow-400 font-mono text-xs md:text-sm">COST: 50 CREDITS</div>
               </button>
               
               <button 
                 onClick={() => handleDiagnostic('REMOVE')}
-                className="p-6 border-2 border-white/10 rounded-2xl bg-white/5 hover:border-red-500/50 hover:bg-red-500/10 transition-all group text-center"
+                className="p-4 md:p-6 border-2 border-white/10 rounded-2xl bg-white/5 hover:border-red-500/50 hover:bg-red-500/10 transition-all group text-center"
               >
-                <Trash2 className="w-12 h-12 text-red-400 mx-auto mb-4 group-hover:rotate-12 transition-transform" />
-                <h4 className="font-black italic text-xl uppercase">协议优化</h4>
-                <p className="text-xs text-white/40 mt-2">从背包中永久移除一个协议</p>
-                <div className="mt-4 text-yellow-400 font-mono">COST: 75 CREDITS</div>
+                <Trash2 className="w-8 h-8 md:w-12 md:h-12 text-red-400 mx-auto mb-2 md:mb-4 group-hover:rotate-12 transition-transform" />
+                <h4 className="font-black italic text-lg md:text-xl uppercase">协议优化</h4>
+                <p className="text-[10px] md:text-xs text-white/40 mt-1 md:mt-2">从背包中永久移除一个协议</p>
+                <div className="mt-2 md:mt-4 text-yellow-400 font-mono text-xs md:text-sm">COST: 75 CREDITS</div>
               </button>
             </div>
           )}
 
           {diagnosticStep === 'REMOVE' && (
             <div className="space-y-4">
-              <p className="text-center text-white/60 font-mono text-sm mb-6">选择要移除的协议 (SELECT PROTOCOL TO PURGE)</p>
-              <div className="grid grid-cols-2 gap-4 max-h-[40vh] overflow-y-auto custom-scrollbar p-2">
+              <p className="text-center text-white/60 font-mono text-xs md:text-sm mb-4 md:mb-6">选择要移除的协议 (SELECT PROTOCOL TO PURGE)</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[50vh] overflow-y-auto custom-scrollbar p-2">
                 {permanentDeck?.map((card, i) => (
                   <div 
                     key={card.uid} 
@@ -4127,7 +4141,7 @@ export default function App() {
               </div>
               <button 
                 onClick={() => setDiagnosticStep('CHOICE')}
-                className="w-full py-3 border border-white/10 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-white/5 transition-all"
+                className="w-full py-2 md:py-3 border border-white/10 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest hover:bg-white/5 transition-all mt-2 md:mt-4"
               >
                 返回
               </button>
@@ -4145,53 +4159,53 @@ export default function App() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/90 backdrop-blur-xl z-[100] flex items-center justify-center p-8"
+          className="fixed inset-0 bg-black/90 backdrop-blur-xl z-[100] flex items-center justify-center p-4 md:p-8"
         >
           <motion.div
             initial={{ scale: 0.9, y: 20 }}
             animate={{ scale: 1, y: 0 }}
-            className="bg-[#0a0a15] border-2 border-emerald-500/30 rounded-3xl w-full max-w-4xl overflow-hidden shadow-[0_0_50px_rgba(16,185,129,0.1)]"
+            className="bg-[#0a0a15] border-2 border-emerald-500/30 rounded-3xl w-full max-w-4xl overflow-hidden shadow-[0_0_50px_rgba(16,185,129,0.1)] flex flex-col max-h-[90vh]"
           >
-            <div className="p-6 border-b border-white/10 flex justify-between items-center bg-emerald-950/20">
-              <div className="flex items-center gap-3">
-                <Activity className="w-6 h-6 text-emerald-400" />
-                <h2 className="text-2xl font-black italic tracking-tighter uppercase">进化实验室 (EVOLUTION LAB)</h2>
+            <div className="p-4 md:p-6 border-b border-white/10 flex justify-between items-center bg-emerald-950/20 shrink-0">
+              <div className="flex items-center gap-2 md:gap-3">
+                <Activity className="w-5 h-5 md:w-6 md:h-6 text-emerald-400" />
+                <h2 className="text-lg md:text-2xl font-black italic tracking-tighter uppercase">进化实验室 (EVOLUTION LAB)</h2>
               </div>
               <button onClick={() => setShowEvolution(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5 md:w-6 md:h-6" />
               </button>
             </div>
             
-            <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="p-4 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 overflow-y-auto custom-scrollbar">
               {party?.map((p, i) => {
                 const canEvolve = p.evolutionLevel && p.level >= p.evolutionLevel;
                 const nextForm = p.evolvesTo ? POKEMON_DB.find(dbP => dbP.id === p.evolvesTo) : null;
                 
                 return (
-                  <div key={i} className={`p-6 rounded-2xl border-2 transition-all ${canEvolve ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-white/5 bg-white/5 opacity-60'}`}>
-                    <div className="flex items-center gap-4 mb-4">
+                  <div key={i} className={`p-4 md:p-6 rounded-2xl border-2 transition-all ${canEvolve ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-white/5 bg-white/5 opacity-60'}`}>
+                    <div className="flex items-center gap-3 md:gap-4 mb-3 md:mb-4">
                       <SafeImage 
                         src={p.img} 
                         alt={p.name} 
-                        className="w-16 h-16 object-contain" 
+                        className="w-12 h-12 md:w-16 md:h-16 object-contain" 
                         cdnIndex={cdnIndex} 
                         pokemonId={p.id}
                       />
                       <div>
-                        <div className="text-lg font-black italic">{p.name}</div>
-                        <div className="text-xs font-mono text-emerald-400">Lv.{p.level} / {p.evolutionLevel ? `进化需要 Lv.${p.evolutionLevel}` : '已达最高级'}</div>
+                        <div className="text-base md:text-lg font-black italic">{p.name}</div>
+                        <div className="text-[10px] md:text-xs font-mono text-emerald-400">Lv.{p.level} / {p.evolutionLevel ? `进化需要 Lv.${p.evolutionLevel}` : '已达最高级'}</div>
                       </div>
                     </div>
                     
                     {canEvolve && nextForm && (
-                      <div className="mt-4 pt-4 border-t border-white/10">
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="text-xs uppercase opacity-60">进化为:</div>
-                          <div className="text-sm font-black text-emerald-400">{nextForm.name}</div>
+                      <div className="mt-3 md:mt-4 pt-3 md:pt-4 border-t border-white/10">
+                        <div className="flex items-center justify-between mb-3 md:mb-4">
+                          <div className="text-[10px] md:text-xs uppercase opacity-60">进化为:</div>
+                          <div className="text-xs md:text-sm font-black text-emerald-400">{nextForm.name}</div>
                         </div>
                         <button 
                           onClick={() => handleEvolve(i)}
-                          className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-black italic rounded-xl transition-all shadow-[0_0_20px_rgba(16,185,129,0.4)]"
+                          className="w-full py-2 md:py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-black italic rounded-xl transition-all shadow-[0_0_20px_rgba(16,185,129,0.4)] text-sm md:text-base"
                         >
                           执行进化协议
                         </button>
@@ -4353,17 +4367,17 @@ export default function App() {
     );
     if (phase === 'REWARD') {
       return (
-        <div className="h-full w-full bg-[#05050a] p-8 text-white flex flex-col items-center justify-center">
+        <div className="h-full w-full bg-[#05050a] p-4 md:p-8 text-white flex flex-col items-center justify-center overflow-y-auto custom-scrollbar">
           <motion.div 
             initial={{ y: -50, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="mb-12 text-center"
+            className="mb-8 md:mb-12 text-center"
           >
-            <h2 className="text-6xl font-black italic tracking-tighter text-cyan-400 mb-2 glitch-text">数据提取成功 (DATA EXTRACTED)</h2>
-            <p className="font-mono text-xs opacity-60 uppercase tracking-[0.4em]">选择一个协议注入你的背包系统</p>
+            <h2 className="text-3xl md:text-6xl font-black italic tracking-tighter text-cyan-400 mb-2 glitch-text">数据提取成功 (DATA EXTRACTED)</h2>
+            <p className="font-mono text-[10px] md:text-xs opacity-60 uppercase tracking-[0.2em] md:tracking-[0.4em]">选择一个协议注入你的背包系统</p>
           </motion.div>
 
-          <div className="flex gap-6 mb-12">
+          <div className="flex flex-wrap justify-center gap-4 md:gap-6 mb-8 md:mb-12">
             {rewards?.map((card, i) => (
               <div key={card.uid} onClick={() => {
                 setPermanentDeck(prev => [...prev, { ...card, isEquipped: true }]);
@@ -4380,7 +4394,7 @@ export default function App() {
               setFloor(prev => prev + 1);
               setPhase('MAP');
             }}
-            className="px-12 py-4 border-2 border-white/20 text-sm font-black uppercase tracking-[0.3em] hover:bg-white/10 transition-all"
+            className="px-8 md:px-12 py-3 md:py-4 border-2 border-white/20 text-xs md:text-sm font-black uppercase tracking-[0.2em] md:tracking-[0.3em] hover:bg-white/10 transition-all"
           >
             跳过注入
           </button>
@@ -4420,7 +4434,19 @@ export default function App() {
   };
 
   return (
-    <div className="h-screen w-screen bg-black overflow-hidden select-none">
+    <div className="h-screen w-screen bg-black overflow-hidden select-none relative">
+      {/* Global Reset Button */}
+      <button
+        onClick={() => {
+          if (window.confirm('确定要恢复出厂设置吗？所有进度将丢失。')) {
+            resetGame();
+          }
+        }}
+        className="absolute top-4 right-4 z-[9999] p-2 bg-red-900/50 border border-red-500/50 rounded-full hover:bg-red-600 transition-colors group"
+        title="系统重置 (恢复出厂设置)"
+      >
+        <Trash2 className="w-4 h-4 text-red-200 group-hover:text-white" />
+      </button>
       {renderContent()}
     </div>
   );
