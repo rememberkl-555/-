@@ -128,34 +128,43 @@ const IntentDisplay = ({ intent }: { intent?: Intent }) => {
   );
 };
 
+const INTRO_FULL_LINES = [
+  "> 警告：检测到未经授权的访问...",
+  "> 防火墙在 7G 扇区被突破",
+  "> 病毒特征：'POKEMON_GLITCH_V2'",
+  "> 系统完整度下降：42%...",
+  "> 正在启动 AI 反制措施...",
+  "> 正在优化全球节点连接...",
+  "> 正在加载神经模型：'AEGIS_PROTO'...",
+  "> 正在生成战斗化身...",
+  "> 任务：清除所有恶意数据。"
+];
+
 const IntroSequence = ({ onComplete, onCdnDetected }: { onComplete: () => void, onCdnDetected: (index: number) => void }) => {
   const [step, setStep] = useState(0);
   const [lines, setLines] = useState<string[]>([]);
   const [isCheckingNetwork, setIsCheckingNetwork] = useState(false);
-  
-  const fullLines = [
-    "> 警告：检测到未经授权的访问...",
-    "> 防火墙在 7G 扇区被突破",
-    "> 病毒特征：'POKEMON_GLITCH_V2'",
-    "> 系统完整度下降：42%...",
-    "> 正在启动 AI 反制措施...",
-    "> 正在优化全球节点连接...",
-    "> 正在加载神经模型：'AEGIS_PROTO'...",
-    "> 正在生成战斗化身...",
-    "> 任务：清除所有恶意数据。"
-  ];
+  const hasCheckedNetwork = useRef(false);
 
   const detectBestCdn = async () => {
+    if (hasCheckedNetwork.current) return;
+    hasCheckedNetwork.current = true;
+    
     setIsCheckingNetwork(true);
     setLines(prev => [...prev, "> 正在检测最佳图像节点 (Detecting best CDN)..."]);
     
     const testImage = '1.png'; // Bulbasaur
     const promises = CDNS.map(async (baseUrl, index) => {
       const start = Date.now();
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
+
       try {
-        const res = await fetch(`${baseUrl}${testImage}`, { mode: 'no-cors' });
+        await fetch(`${baseUrl}${testImage}`, { mode: 'no-cors', signal: controller.signal });
+        clearTimeout(timeoutId);
         return { index, latency: Date.now() - start };
       } catch (e) {
+        clearTimeout(timeoutId);
         return { index, latency: Infinity };
       }
     });
@@ -174,13 +183,15 @@ const IntroSequence = ({ onComplete, onCdnDetected }: { onComplete: () => void, 
   };
 
   useEffect(() => {
-    if (step < fullLines.length) {
+    if (isCheckingNetwork) return; // Pause progression while checking network
+
+    if (step < INTRO_FULL_LINES.length) {
       const timer = setTimeout(() => {
-        setLines(prev => [...prev, fullLines[step]]);
+        setLines(prev => [...prev, INTRO_FULL_LINES[step]]);
         setStep(s => s + 1);
         
         // Trigger network check at specific step
-        if (step === 4) {
+        if (step === 4 && !hasCheckedNetwork.current) {
           detectBestCdn();
         }
       }, 600);
@@ -189,7 +200,7 @@ const IntroSequence = ({ onComplete, onCdnDetected }: { onComplete: () => void, 
       const timer = setTimeout(() => onComplete(), 1000);
       return () => clearTimeout(timer);
     }
-  }, [step, onComplete, fullLines]);
+  }, [step, onComplete, isCheckingNetwork]);
 
   return (
     <div className="h-full w-full bg-black flex flex-col items-center justify-center p-8 font-mono overflow-hidden">
@@ -214,7 +225,7 @@ const IntroSequence = ({ onComplete, onCdnDetected }: { onComplete: () => void, 
               </motion.div>
             ))}
           </AnimatePresence>
-          {step < fullLines.length && (
+          {step < INTRO_FULL_LINES.length && (
             <motion.div
               animate={{ opacity: [0, 1] }}
               transition={{ repeat: Infinity, duration: 0.5 }}
@@ -244,7 +255,7 @@ const IntroSequence = ({ onComplete, onCdnDetected }: { onComplete: () => void, 
         <div className="w-64 h-1 bg-white/5 rounded-full overflow-hidden">
           <motion.div 
             initial={{ width: 0 }}
-            animate={{ width: `${(step / fullLines.length) * 100}%` }}
+            animate={{ width: `${(step / INTRO_FULL_LINES.length) * 100}%` }}
             className="h-full bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.5)]"
           />
         </div>
@@ -1931,79 +1942,7 @@ export default function App() {
     setIsAnimating(false);
   };
 
-  const executeSkill = async (skill: any) => {
-    const currentPlayer = playerRef.current;
-    const currentEnemy = enemyRef.current;
-    if (!currentPlayer || !currentEnemy || isAnimating || currentPlayer.energy < skill.cost) return;
 
-    setIsAnimating(true);
-    setActiveSkillName(skill.name);
-    setTimeout(() => setActiveSkillName(null), 1500);
-    
-    setPlayerAnimation('skill');
-    showDialogue('PLAYER', 'SKILL');
-    
-    setPlayer(prev => prev ? { ...prev, energy: prev.energy - skill.cost } : null);
-
-    // VFX
-    setActiveVfx({ type: skill.vfx || 'buff', target: skill.damage ? 'ENEMY' : 'PLAYER' });
-    
-    if (skill.damage) {
-      triggerShake(skill.damage > 10 ? 15 : 5);
-    }
-
-    await new Promise(r => setTimeout(r, 600));
-    setActiveVfx(null);
-
-    // Logic
-    if (skill.damage) {
-      const attacker = playerRef.current!;
-      const defender = enemyRef.current!;
-      const finalDmg = calculateDamage(skill.damage, attacker, defender);
-      
-      setEnemy(prev => {
-        if (!prev) return null;
-        let d = finalDmg;
-        let s = prev.shield;
-        if (s >= d) { s -= d; d = 0; } else { d -= s; s = 0; }
-        return { ...prev, shield: s, hp: Math.max(0, prev.hp - d) };
-      });
-      addFloatingText(`-${finalDmg}`, '#ef4444', 'ENEMY');
-      setEnemyAnimation('hit');
-      setTimeout(() => setEnemyAnimation('idle'), 500);
-    }
-
-    if (skill.shield) {
-      const dex = playerRef.current?.statusEffects.find(s => s.type === 'DEXTERITY')?.value || 0;
-      const totalShield = skill.shield + dex;
-      setPlayer(prev => prev ? { ...prev, shield: prev.shield + totalShield } : null);
-      addFloatingText(`+${totalShield} 屏障`, '#60a5fa', 'PLAYER');
-    }
-
-    if (skill.heal) {
-      setPlayer(prev => prev ? { ...prev, hp: Math.min(prev.maxHp, prev.hp + skill.heal) } : null);
-      addFloatingText(`+${skill.heal} 修复`, '#4ade80', 'PLAYER');
-    }
-
-    if (skill.selfDamage) {
-      setPlayer(prev => prev ? { ...prev, hp: Math.max(1, prev.hp - skill.selfDamage) } : null);
-      addFloatingText(`-${skill.selfDamage}`, '#ef4444', 'PLAYER');
-      setPlayerAnimation('hit');
-      setTimeout(() => setPlayerAnimation('idle'), 500);
-    }
-
-    if (skill.statusEffect) {
-      applyStatus('ENEMY', skill.statusEffect.type, skill.statusEffect.value);
-      addFloatingText(skill.statusEffect.type, '#c084fc', 'ENEMY');
-    }
-
-    if (skill.selfStatusEffect) {
-      applyStatus('PLAYER', skill.selfStatusEffect.type, skill.selfStatusEffect.value);
-      addFloatingText(skill.selfStatusEffect.type, '#facc15', 'PLAYER');
-    }
-
-    setIsAnimating(false);
-  };
 
   const endPlayerTurn = () => {
     if (turn !== 'PLAYER' || isAnimating) return;
@@ -2265,7 +2204,6 @@ export default function App() {
                 className="w-8 h-8 object-contain" 
                 cdnIndex={cdnIndex} 
                 pokemonId={e.id}
-                onCdnError={() => setCdnIndex(prev => (prev + 1) % 4)}
               />
             </div>
           ))}
@@ -2291,7 +2229,6 @@ export default function App() {
                 className="w-10 h-10 object-contain" 
                 cdnIndex={cdnIndex} 
                 pokemonId={p.id}
-                onCdnError={() => setCdnIndex(prev => (prev + 1) % 4)}
               />
               {p.hp <= 0 && <Skull className="absolute w-6 h-6 text-red-600" />}
             </div>
@@ -2527,7 +2464,6 @@ export default function App() {
                 alt={pvpState.opponentPokemon?.name || ''}
                 className="w-48 h-48 object-contain drop-shadow-[0_0_20px_rgba(255,255,255,0.5)]"
                 cdnIndex={cdnIndex}
-                onCdnError={() => setCdnIndex(prev => (prev + 1) % 4)}
               />
             </motion.div>
             
@@ -2596,7 +2532,6 @@ export default function App() {
                 alt={player.name}
                 className="w-32 h-32 object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.4)]"
                 cdnIndex={cdnIndex}
-                onCdnError={() => setCdnIndex(prev => (prev + 1) % 4)}
               />
             </motion.div>
 
@@ -3060,7 +2995,6 @@ export default function App() {
           className="w-24 h-24 object-contain" 
           cdnIndex={cdnIndex} 
           pokemonId={player?.id}
-          onCdnError={() => setCdnIndex(prev => (prev + 1) % 4)}
         />
         <div>
           <h4 className="text-xl font-black italic" style={{ color: player?.color }}>{player?.name}</h4>
@@ -3144,7 +3078,6 @@ export default function App() {
                           className="w-32 h-32 object-contain drop-shadow-2xl" 
                           cdnIndex={cdnIndex} 
                           pokemonId={pokemon.id}
-                          onCdnError={() => setCdnIndex(prev => (prev + 1) % 4)}
                         />
                         <div className="text-center">
                           <h4 className="text-xl font-black italic text-white">{pokemon.name}</h4>
@@ -3658,7 +3591,6 @@ export default function App() {
                   className="w-12 h-12 object-contain" 
                   cdnIndex={cdnIndex} 
                   pokemonId={p.id}
-                  onCdnError={() => setCdnIndex(prev => (prev + 1) % 4)}
                 />
                 <div className="flex-1">
                   <div className="flex justify-between items-center">
@@ -3848,7 +3780,6 @@ export default function App() {
                   alt={player?.name || ''} 
                   className="w-64 h-64 object-contain drop-shadow-[0_0_50px_rgba(255,255,255,0.2)]" 
                   cdnIndex={cdnIndex}
-                  onCdnError={() => setCdnIndex(prev => (prev + 1) % 4)}
                 />
                 {activeVfx?.target === 'PLAYER' && (
                   <motion.div 
@@ -3865,32 +3796,6 @@ export default function App() {
                 <span className="text-xl font-black italic uppercase tracking-tighter" style={{ color: player?.color }}>{player?.name}</span>
                 <div className="flex gap-1 mt-2">
                   {player?.statusEffects?.map((s, i) => <StatusIcon key={i} effect={s} />)}
-                </div>
-                {/* Skills UI */}
-                <div className="flex gap-2 mt-4">
-                  {player?.skills?.map((skill, i) => (
-                    <button
-                      key={i}
-                      onClick={() => executeSkill(skill)}
-                      disabled={turn !== 'PLAYER' || isAnimating || player!.energy < skill.cost}
-                      className="group relative px-3 py-1 bg-black/40 border border-white/20 rounded hover:border-cyan-400 transition-all disabled:opacity-30"
-                    >
-                      <div className="text-[10px] font-black italic uppercase tracking-tighter text-white/80 group-hover:text-cyan-400">
-                        {skill.name}
-                      </div>
-                      <div className="flex justify-center gap-0.5 mt-1">
-                        {Array.from({ length: skill.cost }).map((_, j) => (
-                          <div key={j} className="w-1.5 h-1.5 bg-cyan-400 rounded-full shadow-[0_0_5px_#00ffff]" />
-                        ))}
-                      </div>
-                      {/* Skill Tooltip */}
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-40 p-2 bg-black/90 border border-cyan-500 rounded text-[10px] hidden group-hover:block z-50">
-                        <div className="font-black text-cyan-400 uppercase mb-1">{skill.name}</div>
-                        <div className="opacity-80">{skill.desc}</div>
-                        <div className="mt-1 text-cyan-400 font-mono">COST: {skill.cost}</div>
-                      </div>
-                    </button>
-                  ))}
                 </div>
               </div>
             </div>
@@ -3922,7 +3827,6 @@ export default function App() {
                   alt={enemy?.name || ''} 
                   className={`w-64 h-64 object-contain drop-shadow-[0_0_50px_rgba(255,0,0,0.2)] ${isCapturing ? 'capture-shake' : ''}`} 
                   cdnIndex={cdnIndex}
-                  onCdnError={() => setCdnIndex(prev => (prev + 1) % 4)}
                 />
                 {activeVfx?.target === 'ENEMY' && (
                   <motion.div 
@@ -4272,7 +4176,6 @@ export default function App() {
                         className="w-16 h-16 object-contain" 
                         cdnIndex={cdnIndex} 
                         pokemonId={p.id}
-                        onCdnError={() => setCdnIndex(prev => (prev + 1) % 4)}
                       />
                       <div>
                         <div className="text-lg font-black italic">{p.name}</div>
@@ -4396,7 +4299,6 @@ export default function App() {
                     className="w-24 h-24 object-contain mx-auto mb-4 drop-shadow-[0_0_20px_rgba(255,255,255,0.2)]" 
                     cdnIndex={cdnIndex} 
                     pokemonId={p.id}
-                    onCdnError={() => setCdnIndex(prev => (prev + 1) % 4)}
                   />
                   <h3 className="text-lg font-black italic uppercase mb-1 text-center" style={{ color: p.color }}>{p.name.split(' ')[0]}</h3>
                   <div className="space-y-0.5 text-[10px] font-mono opacity-60 text-center">
