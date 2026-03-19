@@ -14,8 +14,13 @@ import { motion, AnimatePresence } from 'motion/react';
 import { io, Socket } from 'socket.io-client';
 import { StarterSelection } from './components/StarterSelection';
 import { CaptureAnimation } from './components/CaptureAnimation';
+import { SafeImage } from './components/SafeImage';
 import { Card, EntityState, LogEntry, StatusEffect, Intent, IntentType, StatusType, Relic, MapNode, NodeType, CombatPiles, Consumable, Task, Phase, EndlessState, ShopUpgrade, PVPState } from './types';
-import { POKEMON_DB, INITIAL_DECKS, TERMINOLOGY, RELICS_DB, ENEMIES_DB, JUNK_CARD, CONSUMABLES_DB, TASKS_DB, SHOP_UPGRADES_DB, CARDS_DB, COLLECTION_DB } from './constants';
+import { 
+  POKEMON_DB, INITIAL_DECKS, TERMINOLOGY, RELICS_DB, ENEMIES_DB, JUNK_CARD, 
+  CONSUMABLES_DB, TASKS_DB, SHOP_UPGRADES_DB, CARDS_DB, COLLECTION_DB, 
+  FALLBACK_IMG, CDNS, getPokemonImg 
+} from './constants';
 
 // --- Helpers ---
 const shuffle = <T,>(array: T[]): T[] => {
@@ -123,25 +128,61 @@ const IntentDisplay = ({ intent }: { intent?: Intent }) => {
   );
 };
 
-const IntroSequence = ({ onComplete }: { onComplete: () => void }) => {
+const IntroSequence = ({ onComplete, onCdnDetected }: { onComplete: () => void, onCdnDetected: (index: number) => void }) => {
   const [step, setStep] = useState(0);
   const [lines, setLines] = useState<string[]>([]);
+  const [isCheckingNetwork, setIsCheckingNetwork] = useState(false);
+  
   const fullLines = [
     "> 警告：检测到未经授权的访问...",
     "> 防火墙在 7G 扇区被突破",
     "> 病毒特征：'POKEMON_GLITCH_V2'",
     "> 系统完整度下降：42%...",
     "> 正在启动 AI 反制措施...",
+    "> 正在优化全球节点连接...",
     "> 正在加载神经模型：'AEGIS_PROTO'...",
     "> 正在生成战斗化身...",
     "> 任务：清除所有恶意数据。"
   ];
+
+  const detectBestCdn = async () => {
+    setIsCheckingNetwork(true);
+    setLines(prev => [...prev, "> 正在检测最佳图像节点 (Detecting best CDN)..."]);
+    
+    const testImage = '1.png'; // Bulbasaur
+    const promises = CDNS.map(async (baseUrl, index) => {
+      const start = Date.now();
+      try {
+        const res = await fetch(`${baseUrl}${testImage}`, { mode: 'no-cors' });
+        return { index, latency: Date.now() - start };
+      } catch (e) {
+        return { index, latency: Infinity };
+      }
+    });
+
+    const results = await Promise.all(promises);
+    const best = results.sort((a, b) => a.latency - b.latency)[0];
+    
+    if (best && best.latency !== Infinity) {
+      onCdnDetected(best.index);
+      setLines(prev => [...prev, `> 节点优化完成：已连接至节点 #${best.index} (延迟: ${best.latency}ms)`]);
+    } else {
+      onCdnDetected(0);
+      setLines(prev => [...prev, "> 节点检测失败：使用默认节点。"]);
+    }
+    setIsCheckingNetwork(false);
+  };
 
   useEffect(() => {
     if (step < fullLines.length) {
       const timer = setTimeout(() => {
         setLines(prev => [...prev, fullLines[step]]);
         setStep(s => s + 1);
+        
+        // Trigger network check at specific step
+        if (step === 4) {
+          detectBestCdn();
+        }
       }, 600);
       return () => clearTimeout(timer);
     } else {
@@ -225,28 +266,91 @@ const IntroSequence = ({ onComplete }: { onComplete: () => void }) => {
           ))}
         </div>
       </div>
+
+      {/* Skip Button */}
+      <div className="absolute bottom-8 right-8 flex gap-4 z-50">
+        <motion.button
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 5 }}
+          onClick={() => {
+            if (window.confirm('确定要重置所有数据吗？这将清除你的所有进度、金币和解锁。')) {
+              localStorage.clear();
+              window.location.reload();
+            }
+          }}
+          className="px-4 py-2 border border-red-500/30 text-red-500/50 text-[10px] uppercase tracking-widest hover:text-red-400 hover:border-red-400 transition-all"
+        >
+          重置系统 (RESET SYSTEM)
+        </motion.button>
+        <motion.button
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 2 }}
+          onClick={onComplete}
+          className="px-4 py-2 border border-cyan-500/30 text-cyan-500/50 text-[10px] uppercase tracking-widest hover:text-cyan-400 hover:border-cyan-400 transition-all"
+        >
+          跳过初始化 (SKIP INTRO)
+        </motion.button>
+      </div>
     </div>
   );
 };
 
 export default function App() {
   // --- Game State ---
-  const [phase, setPhase] = useState<Phase>(() => (localStorage.getItem('cyberpoke_phase') as Phase) || 'INTRO');
-  const [floor, setFloor] = useState(() => Number(localStorage.getItem('cyberpoke_floor')) || 1);
-  const [relics, setRelics] = useState<Relic[]>(() => {
-    const saved = localStorage.getItem('cyberpoke_relics');
-    return saved ? JSON.parse(saved) : [];
+  const [phase, setPhase] = useState<Phase>(() => {
+    try {
+      return (localStorage.getItem('cyberpoke_phase') as Phase) || 'INTRO';
+    } catch (e) {
+      return 'INTRO';
+    }
   });
-  const [gold, setGold] = useState(() => Number(localStorage.getItem('cyberpoke_gold')) || 100);
+  const [floor, setFloor] = useState(() => {
+    try {
+      return Number(localStorage.getItem('cyberpoke_floor')) || 1;
+    } catch (e) {
+      return 1;
+    }
+  });
+  const [relics, setRelics] = useState<Relic[]>(() => {
+    try {
+      const saved = localStorage.getItem('cyberpoke_relics');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+  const [gold, setGold] = useState(() => {
+    try {
+      return Number(localStorage.getItem('cyberpoke_gold')) || 100;
+    } catch (e) {
+      return 100;
+    }
+  });
   const [permanentDeck, setPermanentDeck] = useState<Card[]>(() => {
-    const saved = localStorage.getItem('cyberpoke_deck');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('cyberpoke_deck');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
   });
   const [map, setMap] = useState<MapNode[]>(() => {
-    const saved = localStorage.getItem('cyberpoke_map');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('cyberpoke_map');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
   });
-  const [currentNodeId, setCurrentNodeId] = useState<string | null>(() => localStorage.getItem('cyberpoke_node'));
+  const [currentNodeId, setCurrentNodeId] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('cyberpoke_node');
+    } catch (e) {
+      return null;
+    }
+  });
   const [turn, setTurn] = useState<'PLAYER' | 'ENEMY'>('PLAYER');
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [winner, setWinner] = useState<'PLAYER' | 'ENEMY' | null>(null);
@@ -258,58 +362,123 @@ export default function App() {
   const [playerAnim, setPlayerAnim] = useState<'idle' | 'attack' | 'hit'>('idle');
   const [enemyAnim, setEnemyAnim] = useState<'idle' | 'attack' | 'hit'>('idle');
   const [shopCards, setShopCards] = useState<Card[]>(() => {
-    const saved = localStorage.getItem('cyberpoke_shop_cards');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('cyberpoke_shop_cards');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
   });
   const [shopPokemon, setShopPokemon] = useState<EntityState[]>(() => {
-    const saved = localStorage.getItem('cyberpoke_shop_pokemon');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('cyberpoke_shop_pokemon');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
   });
   const [shopRelics, setShopRelics] = useState<Relic[]>(() => {
-    const saved = localStorage.getItem('cyberpoke_shop_relics');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('cyberpoke_shop_relics');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
   });
   const [shopConsumables, setShopConsumables] = useState<Consumable[]>(() => {
-    const saved = localStorage.getItem('cyberpoke_shop_consumables');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('cyberpoke_shop_consumables');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
   });
   const [inventory, setInventory] = useState<Consumable[]>(() => {
-    const saved = localStorage.getItem('cyberpoke_inventory');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('cyberpoke_inventory');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
   });
   const [tasks, setTasks] = useState<Task[]>(() => {
-    const saved = localStorage.getItem('cyberpoke_tasks');
-    return saved ? JSON.parse(saved) : TASKS_DB;
+    try {
+      const saved = localStorage.getItem('cyberpoke_tasks');
+      return saved ? JSON.parse(saved) : TASKS_DB;
+    } catch (e) {
+      return TASKS_DB;
+    }
   });
-  const [lastCheckIn, setLastCheckIn] = useState<string | null>(() => localStorage.getItem('cyberpoke_last_checkin'));
+  const [lastCheckIn, setLastCheckIn] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('cyberpoke_last_checkin');
+    } catch (e) {
+      return null;
+    }
+  });
   const [showTasks, setShowTasks] = useState(false);
   const [showDiagnostic, setShowDiagnostic] = useState(false);
   const [showGacha, setShowGacha] = useState(false);
-  const [gachaTickets, setGachaTickets] = useState(() => Number(localStorage.getItem('cyberpoke_tickets')) || 0);
+  const [gachaTickets, setGachaTickets] = useState(() => {
+    try {
+      return Number(localStorage.getItem('cyberpoke_tickets')) || 0;
+    } catch (e) {
+      return 0;
+    }
+  });
   const [gachaResult, setGachaResult] = useState<any>(null);
   const [isGachaSpinning, setIsGachaSpinning] = useState(false);
   const [diagnosticStep, setDiagnosticStep] = useState<'CHOICE' | 'REMOVE' | 'REPAIR'>('CHOICE');
   const [party, setParty] = useState<EntityState[]>(() => {
-    const saved = localStorage.getItem('cyberpoke_party');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('cyberpoke_party');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
   });
-  const [activePokemonIndex, setActivePokemonIndex] = useState(() => Number(localStorage.getItem('cyberpoke_active_idx')) || 0);
+  const [activePokemonIndex, setActivePokemonIndex] = useState(() => {
+    try {
+      return Number(localStorage.getItem('cyberpoke_active_idx')) || 0;
+    } catch (e) {
+      return 0;
+    }
+  });
   const [rewards, setRewards] = useState<Card[]>([]);
   const [showBackpack, setShowBackpack] = useState(false);
   const [showPartySwitch, setShowPartySwitch] = useState(false);
   const [showEvolution, setShowEvolution] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const [shopUpgrades, setShopUpgrades] = useState<ShopUpgrade[]>(() => {
-    const saved = localStorage.getItem('cyberpoke_shop_upgrades');
-    return saved ? JSON.parse(saved) : SHOP_UPGRADES_DB;
+    try {
+      const saved = localStorage.getItem('cyberpoke_shop_upgrades');
+      return saved ? JSON.parse(saved) : SHOP_UPGRADES_DB;
+    } catch (e) {
+      return SHOP_UPGRADES_DB;
+    }
   });
   const [purchasedUpgrades, setPurchasedUpgrades] = useState<string[]>(() => {
-    const saved = localStorage.getItem('cyberpoke_upgrades');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('cyberpoke_upgrades');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
   });
   const [unlockedPokemonIds, setUnlockedPokemonIds] = useState<string[]>(() => {
-    const saved = localStorage.getItem('cyberpoke_unlocked');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('cyberpoke_unlocked');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+  const [cdnIndex, setCdnIndex] = useState(() => {
+    try {
+      return Number(localStorage.getItem('cyberpoke_cdn_index')) || 0;
+    } catch (e) {
+      return 0;
+    }
   });
   const [activeSkillName, setActiveSkillName] = useState<string | null>(null);
 
@@ -1198,6 +1367,7 @@ export default function App() {
     localStorage.setItem('cyberpoke_active_idx', activePokemonIndex.toString());
     localStorage.setItem('cyberpoke_upgrades', JSON.stringify(purchasedUpgrades));
     localStorage.setItem('cyberpoke_unlocked', JSON.stringify(unlockedPokemonIds));
+    localStorage.setItem('cyberpoke_cdn_index', cdnIndex.toString());
     localStorage.setItem('cyberpoke_player', JSON.stringify(player));
     localStorage.setItem('cyberpoke_enemy', JSON.stringify(enemy));
     localStorage.setItem('cyberpoke_piles', JSON.stringify(piles));
@@ -2090,7 +2260,13 @@ export default function App() {
               key={i} 
               className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center transition-all ${i === endlessLineup.enemyIdx ? 'border-red-500 bg-red-500/20 scale-110' : i < endlessLineup.enemyIdx ? 'border-white/5 opacity-20' : 'border-white/20 opacity-60'}`}
             >
-              <img src={e.img} className="w-8 h-8 object-contain" />
+              <SafeImage 
+                src={e.img} 
+                className="w-8 h-8 object-contain" 
+                cdnIndex={cdnIndex} 
+                pokemonId={e.id}
+                onCdnError={() => setCdnIndex(prev => (prev + 1) % 4)}
+              />
             </div>
           ))}
         </div>
@@ -2110,7 +2286,13 @@ export default function App() {
               }}
               className={`w-12 h-12 rounded-xl border-2 flex items-center justify-center cursor-pointer transition-all ${i === endlessLineup.playerIdx ? 'border-cyan-400 bg-cyan-400/20 scale-110 shadow-[0_0_15px_rgba(34,211,238,0.5)]' : p.hp <= 0 ? 'border-red-900 bg-red-900/20 opacity-30 grayscale' : 'border-white/20 opacity-60 hover:opacity-100'}`}
             >
-              <img src={p.img} className="w-10 h-10 object-contain" />
+              <SafeImage 
+                src={p.img} 
+                className="w-10 h-10 object-contain" 
+                cdnIndex={cdnIndex} 
+                pokemonId={p.id}
+                onCdnError={() => setCdnIndex(prev => (prev + 1) % 4)}
+              />
               {p.hp <= 0 && <Skull className="absolute w-6 h-6 text-red-600" />}
             </div>
           ))}
@@ -2340,11 +2522,12 @@ export default function App() {
               transition={{ duration: 4, repeat: Infinity }}
               className={`w-64 h-64 rounded-full flex items-center justify-center relative z-20 ${pvpState.opponentPokemon?.bgGradient || ''} border-4 border-white/20 shadow-[0_0_50px_rgba(255,255,255,0.1)]`}
             >
-              <img 
-                src={pvpState.opponentPokemon?.img} 
-                alt={pvpState.opponentPokemon?.name}
+              <SafeImage 
+                src={pvpState.opponentPokemon?.img || ''} 
+                alt={pvpState.opponentPokemon?.name || ''}
                 className="w-48 h-48 object-contain drop-shadow-[0_0_20px_rgba(255,255,255,0.5)]"
-                referrerPolicy="no-referrer"
+                cdnIndex={cdnIndex}
+                onCdnError={() => setCdnIndex(prev => (prev + 1) % 4)}
               />
             </motion.div>
             
@@ -2408,11 +2591,12 @@ export default function App() {
               transition={{ duration: 3, repeat: Infinity }}
               className={`w-48 h-48 rounded-full flex items-center justify-center relative z-20 ${player.bgGradient} border-4 border-white/20 shadow-[0_0_30px_rgba(255,255,255,0.1)]`}
             >
-              <img 
+              <SafeImage 
                 src={player.img} 
                 alt={player.name}
                 className="w-32 h-32 object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.4)]"
-                referrerPolicy="no-referrer"
+                cdnIndex={cdnIndex}
+                onCdnError={() => setCdnIndex(prev => (prev + 1) % 4)}
               />
             </motion.div>
 
@@ -2871,7 +3055,13 @@ export default function App() {
       </div>
 
       <div className="mt-12 p-6 border border-white/10 rounded-2xl bg-white/5 flex items-center gap-6 z-10">
-        <img src={player?.img} className="w-24 h-24 object-contain" />
+        <SafeImage 
+          src={player?.img} 
+          className="w-24 h-24 object-contain" 
+          cdnIndex={cdnIndex} 
+          pokemonId={player?.id}
+          onCdnError={() => setCdnIndex(prev => (prev + 1) % 4)}
+        />
         <div>
           <h4 className="text-xl font-black italic" style={{ color: player?.color }}>{player?.name}</h4>
           <div className="flex gap-4 mt-2 text-[10px] font-mono opacity-60 uppercase tracking-widest">
@@ -2948,7 +3138,14 @@ export default function App() {
                     const price = getPrice(pokemon.price || 500);
                     return (
                       <div key={pokemon.id || i} className="flex flex-col items-center gap-4 bg-white/5 p-6 rounded-3xl border border-white/10 hover:border-purple-500/30 transition-all group relative">
-                        <img src={pokemon.img} alt={pokemon.name} className="w-32 h-32 object-contain drop-shadow-2xl" />
+                        <SafeImage 
+                          src={pokemon.img} 
+                          alt={pokemon.name} 
+                          className="w-32 h-32 object-contain drop-shadow-2xl" 
+                          cdnIndex={cdnIndex} 
+                          pokemonId={pokemon.id}
+                          onCdnError={() => setCdnIndex(prev => (prev + 1) % 4)}
+                        />
                         <div className="text-center">
                           <h4 className="text-xl font-black italic text-white">{pokemon.name}</h4>
                           <p className="text-xs text-white/50 mt-1">HP: {pokemon.maxHp} | 能量: {pokemon.maxEnergy}</p>
@@ -3455,7 +3652,14 @@ export default function App() {
                 key={`${p.id}-${idx}`}
                 className={`p-3 border rounded-xl flex items-center gap-4 transition-all ${idx === activePokemonIndex ? 'bg-purple-500/20 border-purple-500' : 'bg-white/5 border-white/10 hover:border-purple-500/50'}`}
               >
-                <img src={p.img} alt={p.name} className="w-12 h-12 object-contain" referrerPolicy="no-referrer" />
+                <SafeImage 
+                  src={p.img} 
+                  alt={p.name} 
+                  className="w-12 h-12 object-contain" 
+                  cdnIndex={cdnIndex} 
+                  pokemonId={p.id}
+                  onCdnError={() => setCdnIndex(prev => (prev + 1) % 4)}
+                />
                 <div className="flex-1">
                   <div className="flex justify-between items-center">
                     <div className="font-black text-sm uppercase tracking-wide" style={{ color: p.color }}>{p.name}</div>
@@ -3639,11 +3843,12 @@ export default function App() {
                 }
                 className="relative"
               >
-                <img 
-                  src={player?.img} 
-                  alt={player?.name} 
+                <SafeImage 
+                  src={player?.img || ''} 
+                  alt={player?.name || ''} 
                   className="w-64 h-64 object-contain drop-shadow-[0_0_50px_rgba(255,255,255,0.2)]" 
-                  referrerPolicy="no-referrer"
+                  cdnIndex={cdnIndex}
+                  onCdnError={() => setCdnIndex(prev => (prev + 1) % 4)}
                 />
                 {activeVfx?.target === 'PLAYER' && (
                   <motion.div 
@@ -3712,11 +3917,12 @@ export default function App() {
                 }
                 className="relative"
               >
-                <img 
-                  src={enemy?.img} 
-                  alt={enemy?.name} 
+                <SafeImage 
+                  src={enemy?.img || ''} 
+                  alt={enemy?.name || ''} 
                   className={`w-64 h-64 object-contain drop-shadow-[0_0_50px_rgba(255,0,0,0.2)] ${isCapturing ? 'capture-shake' : ''}`} 
-                  referrerPolicy="no-referrer"
+                  cdnIndex={cdnIndex}
+                  onCdnError={() => setCdnIndex(prev => (prev + 1) % 4)}
                 />
                 {activeVfx?.target === 'ENEMY' && (
                   <motion.div 
@@ -4060,7 +4266,14 @@ export default function App() {
                 return (
                   <div key={i} className={`p-6 rounded-2xl border-2 transition-all ${canEvolve ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-white/5 bg-white/5 opacity-60'}`}>
                     <div className="flex items-center gap-4 mb-4">
-                      <img src={p.img} alt={p.name} className="w-16 h-16 object-contain" />
+                      <SafeImage 
+                        src={p.img} 
+                        alt={p.name} 
+                        className="w-16 h-16 object-contain" 
+                        cdnIndex={cdnIndex} 
+                        pokemonId={p.id}
+                        onCdnError={() => setCdnIndex(prev => (prev + 1) % 4)}
+                      />
                       <div>
                         <div className="text-lg font-black italic">{p.name}</div>
                         <div className="text-xs font-mono text-emerald-400">Lv.{p.level} / {p.evolutionLevel ? `进化需要 Lv.${p.evolutionLevel}` : '已达最高级'}</div>
@@ -4100,8 +4313,8 @@ export default function App() {
         {showGacha && renderGacha()}
         {showEvolution && renderEvolution()}
         {(() => {
-          if (phase === 'INTRO') return <IntroSequence onComplete={() => setPhase('STARTER_SELECT')} />;
-          if (phase === 'STARTER_SELECT') return <StarterSelection onSelect={initGame} />;
+          if (phase === 'INTRO') return <IntroSequence onComplete={() => setPhase('STARTER_SELECT')} onCdnDetected={setCdnIndex} />;
+          if (phase === 'STARTER_SELECT') return <StarterSelection onSelect={initGame} cdnIndex={cdnIndex} />;
           if (phase === 'PVP_LOBBY') return renderPVPLobby();
           if (phase === 'PVP_BATTLE') return renderPVPBattle();
           if (phase === 'START') {
@@ -4177,7 +4390,14 @@ export default function App() {
                   <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-30 transition-opacity">
                     <Database className="w-16 h-16" />
                   </div>
-                  <img src={p.img} alt={p.name} className="w-24 h-24 object-contain mx-auto mb-4 drop-shadow-[0_0_20px_rgba(255,255,255,0.2)]" referrerPolicy="no-referrer" />
+                  <SafeImage 
+                    src={p.img} 
+                    alt={p.name} 
+                    className="w-24 h-24 object-contain mx-auto mb-4 drop-shadow-[0_0_20px_rgba(255,255,255,0.2)]" 
+                    cdnIndex={cdnIndex} 
+                    pokemonId={p.id}
+                    onCdnError={() => setCdnIndex(prev => (prev + 1) % 4)}
+                  />
                   <h3 className="text-lg font-black italic uppercase mb-1 text-center" style={{ color: p.color }}>{p.name.split(' ')[0]}</h3>
                   <div className="space-y-0.5 text-[10px] font-mono opacity-60 text-center">
                     <p>LVL: {p.level || 1}</p>

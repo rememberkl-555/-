@@ -8,6 +8,21 @@ export const TERMINOLOGY = {
   END_TURN: '执行指令 (Execute)',
 };
 
+export const FALLBACK_IMG = 'https://cdn.jsdelivr.net/gh/PokeAPI/sprites/master/sprites/items/poke-ball.png';
+
+export const CDNS = [
+  'https://cdn.jsdelivr.net/gh/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/',
+  'https://fastly.jsdelivr.net/gh/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/',
+  'https://gcore.jsdelivr.net/gh/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/',
+  'https://unpkg.com/pokeapi-sprites@2.0.2/sprites/pokemon/other/official-artwork/',
+  'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/'
+];
+
+export const getPokemonImg = (id: number | string, cdnIndex: number = 0) => {
+  const baseUrl = CDNS[cdnIndex] || CDNS[0];
+  return `${baseUrl}${id}.png`;
+};
+
 export const POKEMON_DB: Omit<EntityState, 'hp' | 'shield' | 'energy' | 'statusEffects' | 'intent'>[] = [
   {
     id: 'pikachu',
@@ -259,7 +274,7 @@ export const POKEMON_DB: Omit<EntityState, 'hp' | 'shield' | 'energy' | 'statusE
   {
     id: 'tyranitar',
     name: '班基拉斯 (Tyranitar)',
-    img: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/248.png',
+    img: 'https://cdn.jsdelivr.net/gh/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/248.png',
     maxHp: 150,
     maxEnergy: 3,
     color: '#4ade80',
@@ -277,7 +292,7 @@ export const POKEMON_DB: Omit<EntityState, 'hp' | 'shield' | 'energy' | 'statusE
   {
     id: 'lucario',
     name: '路卡利欧 (Lucario)',
-    img: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/448.png',
+    img: 'https://cdn.jsdelivr.net/gh/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/448.png',
     maxHp: 110,
     maxEnergy: 4,
     color: '#38bdf8',
@@ -295,7 +310,7 @@ export const POKEMON_DB: Omit<EntityState, 'hp' | 'shield' | 'energy' | 'statusE
   {
     id: 'gastly',
     name: '鬼斯 (Gastly)',
-    img: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/92.png',
+    img: 'https://cdn.jsdelivr.net/gh/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/92.png',
     maxHp: 70,
     maxEnergy: 3,
     color: '#a855f7',
@@ -315,7 +330,7 @@ export const POKEMON_DB: Omit<EntityState, 'hp' | 'shield' | 'energy' | 'statusE
   {
     id: 'haunter',
     name: '鬼斯通 (Haunter)',
-    img: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/93.png',
+    img: 'https://cdn.jsdelivr.net/gh/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/93.png',
     maxHp: 100,
     maxEnergy: 3,
     color: '#a855f7',
@@ -335,7 +350,7 @@ export const POKEMON_DB: Omit<EntityState, 'hp' | 'shield' | 'energy' | 'statusE
   {
     id: 'gengar',
     name: '耿鬼 (Gengar)',
-    img: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/94.png',
+    img: 'https://cdn.jsdelivr.net/gh/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/94.png',
     maxHp: 140,
     maxEnergy: 4,
     color: '#a855f7',
@@ -353,7 +368,7 @@ export const POKEMON_DB: Omit<EntityState, 'hp' | 'shield' | 'energy' | 'statusE
   {
     id: 'dratini',
     name: '迷你龙 (Dratini)',
-    img: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/147.png',
+    img: 'https://cdn.jsdelivr.net/gh/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/147.png',
     maxHp: 80,
     maxEnergy: 3,
     color: '#fbbf24',
@@ -373,7 +388,7 @@ export const POKEMON_DB: Omit<EntityState, 'hp' | 'shield' | 'energy' | 'statusE
   {
     id: 'dragonair',
     name: '哈克龙 (Dragonair)',
-    img: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/148.png',
+    img: 'https://cdn.jsdelivr.net/gh/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/148.png',
     maxHp: 110,
     maxEnergy: 3,
     color: '#fbbf24',
@@ -393,7 +408,7 @@ export const POKEMON_DB: Omit<EntityState, 'hp' | 'shield' | 'energy' | 'statusE
   {
     id: 'dragonite',
     name: '快龙 (Dragonite)',
-    img: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/149.png',
+    img: 'https://cdn.jsdelivr.net/gh/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/149.png',
     maxHp: 160,
     maxEnergy: 4,
     color: '#fbbf24',
@@ -411,7 +426,7 @@ export const POKEMON_DB: Omit<EntityState, 'hp' | 'shield' | 'energy' | 'statusE
   {
     id: 'snorlax',
     name: '卡比兽 (Snorlax)',
-    img: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/143.png',
+    img: 'https://cdn.jsdelivr.net/gh/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/143.png',
     maxHp: 250,
     maxEnergy: 2,
     color: '#a3e635',
@@ -429,7 +444,7 @@ export const POKEMON_DB: Omit<EntityState, 'hp' | 'shield' | 'energy' | 'statusE
   {
     id: 'rattata',
     name: '小拉达 (Rattata)',
-    img: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/19.png',
+    img: 'https://cdn.jsdelivr.net/gh/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/19.png',
     maxHp: 45,
     maxEnergy: 3,
     color: '#a8a878',
@@ -447,7 +462,7 @@ export const POKEMON_DB: Omit<EntityState, 'hp' | 'shield' | 'energy' | 'statusE
   {
     id: 'caterpie',
     name: '绿毛虫 (Caterpie)',
-    img: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/10.png',
+    img: 'https://cdn.jsdelivr.net/gh/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/10.png',
     maxHp: 40,
     maxEnergy: 3,
     color: '#a8b820',
@@ -464,7 +479,7 @@ export const POKEMON_DB: Omit<EntityState, 'hp' | 'shield' | 'energy' | 'statusE
   {
     id: 'pidgey',
     name: '波波 (Pidgey)',
-    img: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/16.png',
+    img: 'https://cdn.jsdelivr.net/gh/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/16.png',
     maxHp: 50,
     maxEnergy: 3,
     color: '#a890f0',
@@ -482,7 +497,7 @@ export const POKEMON_DB: Omit<EntityState, 'hp' | 'shield' | 'energy' | 'statusE
   {
     id: 'zubat',
     name: '超音蝠 (Zubat)',
-    img: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/41.png',
+    img: 'https://cdn.jsdelivr.net/gh/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/41.png',
     maxHp: 55,
     maxEnergy: 3,
     color: '#a040a0',
@@ -500,7 +515,7 @@ export const POKEMON_DB: Omit<EntityState, 'hp' | 'shield' | 'energy' | 'statusE
   {
     id: 'meowth',
     name: '喵喵 (Meowth)',
-    img: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/52.png',
+    img: 'https://cdn.jsdelivr.net/gh/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/52.png',
     maxHp: 65,
     maxEnergy: 3,
     color: '#f7d02c',
@@ -518,7 +533,7 @@ export const POKEMON_DB: Omit<EntityState, 'hp' | 'shield' | 'energy' | 'statusE
   {
     id: 'magnemite',
     name: '小磁怪 (Magnemite)',
-    img: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/81.png',
+    img: 'https://cdn.jsdelivr.net/gh/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/81.png',
     maxHp: 70,
     maxEnergy: 3,
     color: '#b8b8d0',
@@ -536,7 +551,7 @@ export const POKEMON_DB: Omit<EntityState, 'hp' | 'shield' | 'energy' | 'statusE
   {
     id: 'koffing',
     name: '瓦斯弹 (Koffing)',
-    img: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/109.png',
+    img: 'https://cdn.jsdelivr.net/gh/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/109.png',
     maxHp: 75,
     maxEnergy: 3,
     color: '#a040a0',
@@ -554,7 +569,7 @@ export const POKEMON_DB: Omit<EntityState, 'hp' | 'shield' | 'energy' | 'statusE
   {
     id: 'machop',
     name: '腕力 (Machop)',
-    img: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/66.png',
+    img: 'https://cdn.jsdelivr.net/gh/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/66.png',
     maxHp: 80,
     maxEnergy: 3,
     color: '#d0d0d0',
@@ -572,7 +587,7 @@ export const POKEMON_DB: Omit<EntityState, 'hp' | 'shield' | 'energy' | 'statusE
   {
     id: 'abra',
     name: '凯西 (Abra)',
-    img: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/63.png',
+    img: 'https://cdn.jsdelivr.net/gh/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/63.png',
     maxHp: 40,
     maxEnergy: 3,
     color: '#f8d030',
@@ -589,7 +604,7 @@ export const POKEMON_DB: Omit<EntityState, 'hp' | 'shield' | 'energy' | 'statusE
   {
     id: 'geodude',
     name: '小拳石 (Geodude)',
-    img: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/74.png',
+    img: 'https://cdn.jsdelivr.net/gh/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/74.png',
     maxHp: 90,
     maxEnergy: 3,
     color: '#b8b8d0',

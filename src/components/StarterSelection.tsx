@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { POKEMON_DB } from '../constants';
+import { POKEMON_DB, FALLBACK_IMG } from '../constants';
+import { SafeImage } from './SafeImage';
 import { EntityState } from '../types';
 import { Database } from 'lucide-react';
 
 const STARTER_IDS = ['pikachu', 'charmander', 'squirtle', 'bulbasaur', 'gastly', 'dratini', 'machop', 'abra', 'geodude'];
 
-export const StarterSelection = ({ onSelect }: { onSelect: (id: string) => void }) => {
+export const StarterSelection = ({ onSelect, cdnIndex }: { onSelect: (id: string) => void, cdnIndex: number }) => {
   const starters = POKEMON_DB.filter(p => STARTER_IDS.includes(p.id));
   const [isFlipped, setIsFlipped] = useState(false);
   const [shuffledStarters, setShuffledStarters] = useState<EntityState[]>([]);
@@ -82,7 +83,7 @@ export const StarterSelection = ({ onSelect }: { onSelect: (id: string) => void 
                 >
                   <div className="relative">
                     <div className="absolute inset-0 blur-xl opacity-30" style={{ backgroundColor: p.color }}></div>
-                    <img src={p.img} alt={p.name} className="w-24 h-24 object-contain mb-2 relative z-10" referrerPolicy="no-referrer" />
+                    <SafeImage src={p.img} alt={p.name} className="w-24 h-24 object-contain mb-2 relative z-10" cdnIndex={cdnIndex} />
                   </div>
                   <h3 className="text-sm font-black italic tracking-tighter text-center" style={{ color: p.color }}>{p.name.split(' ')[0]}</h3>
                   <div className="mt-2 flex gap-1 flex-wrap justify-center">
