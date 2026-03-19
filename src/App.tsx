@@ -8,12 +8,14 @@ import {
   Shield, Zap, Heart, Swords, RefreshCw, ChevronRight, 
   Skull, Activity, ZapOff, Database, Trash2, Play, Info, Flame,
   ShoppingCart, Coins, Search, HeartPulse, Star, Disc, Crosshair, ShieldCheck, Briefcase, X, Cpu,
-  Snowflake, CheckCircle2, Circle, Gift, Package, Clock, Share2, ShieldAlert, Coffee, Lock, Layers
+  Snowflake, CheckCircle2, Circle, Gift, Package, Clock, Share2, ShieldAlert, Coffee, Lock, Layers, ArrowLeft, BookOpen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { io, Socket } from 'socket.io-client';
+import { StarterSelection } from './components/StarterSelection';
+import { CaptureAnimation } from './components/CaptureAnimation';
 import { Card, EntityState, LogEntry, StatusEffect, Intent, IntentType, StatusType, Relic, MapNode, NodeType, CombatPiles, Consumable, Task, Phase, EndlessState, ShopUpgrade, PVPState } from './types';
-import { POKEMON_DB, INITIAL_DECKS, TERMINOLOGY, RELICS_DB, ENEMIES_DB, JUNK_CARD, CONSUMABLES_DB, TASKS_DB, SHOP_UPGRADES_DB, CARDS_DB } from './constants';
+import { POKEMON_DB, INITIAL_DECKS, TERMINOLOGY, RELICS_DB, ENEMIES_DB, JUNK_CARD, CONSUMABLES_DB, TASKS_DB, SHOP_UPGRADES_DB, CARDS_DB, COLLECTION_DB } from './constants';
 
 // --- Helpers ---
 const shuffle = <T,>(array: T[]): T[] => {
@@ -143,7 +145,7 @@ const IntroSequence = ({ onComplete }: { onComplete: () => void }) => {
       }, 600);
       return () => clearTimeout(timer);
     } else {
-      const timer = setTimeout(() => onComplete(), 2000);
+      const timer = setTimeout(() => onComplete(), 1000);
       return () => clearTimeout(timer);
     }
   }, [step, onComplete, fullLines]);
@@ -229,13 +231,22 @@ const IntroSequence = ({ onComplete }: { onComplete: () => void }) => {
 
 export default function App() {
   // --- Game State ---
-  const [phase, setPhase] = useState<Phase>('INTRO');
-  const [floor, setFloor] = useState(1);
-  const [relics, setRelics] = useState<Relic[]>([]);
-  const [gold, setGold] = useState(100);
-  const [permanentDeck, setPermanentDeck] = useState<Card[]>([]);
-  const [map, setMap] = useState<MapNode[]>([]);
-  const [currentNodeId, setCurrentNodeId] = useState<string | null>(null);
+  const [phase, setPhase] = useState<Phase>(() => (localStorage.getItem('cyberpoke_phase') as Phase) || 'INTRO');
+  const [floor, setFloor] = useState(() => Number(localStorage.getItem('cyberpoke_floor')) || 1);
+  const [relics, setRelics] = useState<Relic[]>(() => {
+    const saved = localStorage.getItem('cyberpoke_relics');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [gold, setGold] = useState(() => Number(localStorage.getItem('cyberpoke_gold')) || 100);
+  const [permanentDeck, setPermanentDeck] = useState<Card[]>(() => {
+    const saved = localStorage.getItem('cyberpoke_deck');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [map, setMap] = useState<MapNode[]>(() => {
+    const saved = localStorage.getItem('cyberpoke_map');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [currentNodeId, setCurrentNodeId] = useState<string | null>(() => localStorage.getItem('cyberpoke_node'));
   const [turn, setTurn] = useState<'PLAYER' | 'ENEMY'>('PLAYER');
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [winner, setWinner] = useState<'PLAYER' | 'ENEMY' | null>(null);
@@ -244,27 +255,70 @@ export default function App() {
   const [isGlitching, setIsGlitching] = useState(false);
   const [floatingTexts, setFloatingTexts] = useState<{id: string, text: string, color: string, x: number, y: number}[]>([]);
   const [activeVfx, setActiveVfx] = useState<{type: string, target: 'PLAYER' | 'ENEMY'} | null>(null);
-  const [shopCards, setShopCards] = useState<Card[]>([]);
-  const [shopRelics, setShopRelics] = useState<Relic[]>([]);
-  const [shopConsumables, setShopConsumables] = useState<Consumable[]>([]);
-  const [inventory, setInventory] = useState<Consumable[]>([]);
-  const [tasks, setTasks] = useState<Task[]>(TASKS_DB);
-  const [lastCheckIn, setLastCheckIn] = useState<string | null>(null);
+  const [playerAnim, setPlayerAnim] = useState<'idle' | 'attack' | 'hit'>('idle');
+  const [enemyAnim, setEnemyAnim] = useState<'idle' | 'attack' | 'hit'>('idle');
+  const [shopCards, setShopCards] = useState<Card[]>(() => {
+    const saved = localStorage.getItem('cyberpoke_shop_cards');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [shopPokemon, setShopPokemon] = useState<EntityState[]>(() => {
+    const saved = localStorage.getItem('cyberpoke_shop_pokemon');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [shopRelics, setShopRelics] = useState<Relic[]>(() => {
+    const saved = localStorage.getItem('cyberpoke_shop_relics');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [shopConsumables, setShopConsumables] = useState<Consumable[]>(() => {
+    const saved = localStorage.getItem('cyberpoke_shop_consumables');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [inventory, setInventory] = useState<Consumable[]>(() => {
+    const saved = localStorage.getItem('cyberpoke_inventory');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [tasks, setTasks] = useState<Task[]>(() => {
+    const saved = localStorage.getItem('cyberpoke_tasks');
+    return saved ? JSON.parse(saved) : TASKS_DB;
+  });
+  const [lastCheckIn, setLastCheckIn] = useState<string | null>(() => localStorage.getItem('cyberpoke_last_checkin'));
   const [showTasks, setShowTasks] = useState(false);
   const [showDiagnostic, setShowDiagnostic] = useState(false);
   const [showGacha, setShowGacha] = useState(false);
-  const [gachaTickets, setGachaTickets] = useState(0);
+  const [gachaTickets, setGachaTickets] = useState(() => Number(localStorage.getItem('cyberpoke_tickets')) || 0);
   const [gachaResult, setGachaResult] = useState<any>(null);
   const [isGachaSpinning, setIsGachaSpinning] = useState(false);
   const [diagnosticStep, setDiagnosticStep] = useState<'CHOICE' | 'REMOVE' | 'REPAIR'>('CHOICE');
-  const [party, setParty] = useState<EntityState[]>([]);
-  const [activePokemonIndex, setActivePokemonIndex] = useState(0);
+  const [party, setParty] = useState<EntityState[]>(() => {
+    const saved = localStorage.getItem('cyberpoke_party');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [activePokemonIndex, setActivePokemonIndex] = useState(() => Number(localStorage.getItem('cyberpoke_active_idx')) || 0);
   const [rewards, setRewards] = useState<Card[]>([]);
   const [showBackpack, setShowBackpack] = useState(false);
   const [showPartySwitch, setShowPartySwitch] = useState(false);
   const [showEvolution, setShowEvolution] = useState(false);
-  const [shopUpgrades, setShopUpgrades] = useState<ShopUpgrade[]>([]);
-  const [purchasedUpgrades, setPurchasedUpgrades] = useState<string[]>([]);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [shopUpgrades, setShopUpgrades] = useState<ShopUpgrade[]>(() => {
+    const saved = localStorage.getItem('cyberpoke_shop_upgrades');
+    return saved ? JSON.parse(saved) : SHOP_UPGRADES_DB;
+  });
+  const [purchasedUpgrades, setPurchasedUpgrades] = useState<string[]>(() => {
+    const saved = localStorage.getItem('cyberpoke_upgrades');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [unlockedPokemonIds, setUnlockedPokemonIds] = useState<string[]>(() => {
+    const saved = localStorage.getItem('cyberpoke_unlocked');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [activeSkillName, setActiveSkillName] = useState<string | null>(null);
+
+  const resetGame = () => {
+    if (window.confirm('确定要重置所有数据吗？这将清除你的所有进度、金币和解锁。')) {
+      localStorage.clear();
+      window.location.reload();
+    }
+  };
 
   const addLog = (msg: string, type: 'system' | 'player' | 'enemy') => {
     setLogs(prev => [{ id: generateUUID(), msg, type }, ...prev].slice(0, 50));
@@ -319,6 +373,9 @@ export default function App() {
         opponentId,
         opponentName: opponentData.name,
         opponentPokemon: opponentData.pokemon,
+        opponentParty: opponentData.party || [opponentData.pokemon],
+        opponentActiveIndex: opponentData.activeIndex || 0,
+        opponentInventory: opponentData.inventory || [],
         isMyTurn: isFirst,
         turnNumber: 1,
         opponentHandCount: 5,
@@ -350,16 +407,46 @@ export default function App() {
     };
   }, [permanentDeck]);
 
-  const handleOpponentAction = (action: any) => {
+  const handleOpponentAction = async (action: any) => {
     switch (action.type) {
-      case 'PLAY_CARD':
-        // Handle opponent playing a card
+      case 'PLAY_CARD': {
         const card = action.card;
+        
+        setActiveSkillName(card.name);
+        setTimeout(() => setActiveSkillName(null), 1500);
+        
+        setEnemyAnimation(card.type === 'ATTACK' ? 'attack' : 'skill');
+        showDialogue('ENEMY', card.type === 'ATTACK' ? 'ATTACK' : 'SKILL');
+        
+        setActiveVfx({ 
+          type: card.vfx || (card.type === 'ATTACK' ? 'physical' : 'buff'), 
+          target: card.type === 'ATTACK' ? 'PLAYER' : 'ENEMY' 
+        });
+
+        if (card.type === 'ATTACK') {
+          triggerShake(card.damage && card.damage > 10 ? 15 : 5);
+          await new Promise(r => setTimeout(r, 120)); 
+          if (card.cost >= 2) {
+            setIsGlitching(true);
+            setTimeout(() => setIsGlitching(false), 150);
+          }
+        }
+
+        await new Promise(r => setTimeout(r, 400));
+        setActiveVfx(null);
+
         // Apply effects to player (me)
         if (card.damage) {
-          const actualDamage = Math.max(0, card.damage - player.shield);
           setPlayer(prev => {
+            if (!prev) return null;
+            const actualDamage = Math.max(0, card.damage - prev.shield);
             const newHp = Math.max(0, prev.hp - actualDamage);
+            
+            addFloatingText(`-${actualDamage}`, '#ef4444', 'PLAYER');
+            setPlayerAnimation('hit');
+            showDialogue('PLAYER', 'HIT');
+            setTimeout(() => setPlayerAnimation('idle'), 500);
+
             if (newHp <= 0 && pvpState) {
               setWinner('ENEMY');
               setPhase('GAMEOVER');
@@ -375,21 +462,119 @@ export default function App() {
             };
           });
         }
-        if (card.statusEffect) {
-          setPlayer(prev => ({
-            ...prev,
-            statusEffects: [...prev.statusEffects, card.statusEffect],
-          }));
+
+        if (card.shield) {
+          addFloatingText(`+${card.shield} 屏障`, '#60a5fa', 'ENEMY');
         }
+
+        if (card.statusEffect) {
+          setPlayer(prev => {
+            if (!prev) return null;
+            const statusEffects = prev.statusEffects || [];
+            const existing = statusEffects.find(s => s.type === card.statusEffect!.type);
+            const newStatusEffects = existing
+              ? statusEffects.map(s => s.type === card.statusEffect!.type ? { ...s, value: s.value + card.statusEffect!.value } : s)
+              : [...statusEffects, card.statusEffect!];
+            
+            addFloatingText(card.statusEffect!.type, '#c084fc', 'PLAYER');
+            return { ...prev, statusEffects: newStatusEffects };
+          });
+        }
+
+        if (card.selfStatusEffect) {
+          setPvpState(prev => {
+            if (!prev) return null;
+            const statusEffects = prev.opponentPokemon.statusEffects || [];
+            const existing = statusEffects.find(s => s.type === card.selfStatusEffect!.type);
+            const newStatusEffects = existing
+              ? statusEffects.map(s => s.type === card.selfStatusEffect!.type ? { ...s, value: s.value + card.selfStatusEffect!.value } : s)
+              : [...statusEffects, card.selfStatusEffect!];
+            
+            addFloatingText(card.selfStatusEffect!.type, '#facc15', 'ENEMY');
+            return {
+              ...prev,
+              opponentPokemon: {
+                ...prev.opponentPokemon,
+                statusEffects: newStatusEffects
+              }
+            };
+          });
+        }
+
+        if (card.heal) {
+          addFloatingText(`+${card.heal} HP`, '#4ade80', 'ENEMY');
+        }
+
         // Update opponent state
         setPvpState(prev => prev ? {
           ...prev,
-          opponentHandCount: prev.opponentHandCount - 1,
+          opponentHandCount: prev.opponentHandCount - 1 + (card.draw || 0),
           opponentShield: prev.opponentShield + (card.shield || 0),
-          opponentHp: prev.opponentHp + (card.heal || 0),
+          opponentHp: Math.min(prev.opponentMaxHp, prev.opponentHp + (card.heal || 0)),
         } : null);
+        
         addLog(`${pvpState?.opponentName} 使用了 ${card.name}`, 'enemy');
         break;
+      }
+      case 'USE_ITEM': {
+        const item = action.item;
+        addLog(`${pvpState?.opponentName} 使用了道具: ${item.name}`, 'enemy');
+        addFloatingText(`${item.name}`, '#facc15', 'ENEMY');
+        
+        setPvpState(prev => {
+          if (!prev) return null;
+          let newHp = prev.opponentHp;
+          let newMaxHp = prev.opponentMaxHp;
+          let newShield = prev.opponentShield;
+          let newStatusEffects = [...(prev.opponentPokemon.statusEffects || [])];
+
+          if (item.type === 'HEAL') {
+            newHp = Math.min(newMaxHp, newHp + item.value);
+          } else if (item.type === 'STATUS') {
+            if (item.id === 'guard_spec') {
+              newShield += item.value;
+            } else if (item.statusType) {
+              newStatusEffects.push({ type: item.statusType, value: item.value });
+            }
+          }
+
+          return {
+            ...prev,
+            opponentHp: newHp,
+            opponentMaxHp: newMaxHp,
+            opponentShield: newShield,
+            opponentPokemon: {
+              ...prev.opponentPokemon,
+              hp: newHp,
+              maxHp: newMaxHp,
+              shield: newShield,
+              statusEffects: newStatusEffects
+            }
+          };
+        });
+        break;
+      }
+      case 'SWITCH_POKEMON': {
+        const index = action.index;
+        const newPokemon = pvpState?.opponentParty?.[index];
+        if (newPokemon) {
+          addLog(`${pvpState?.opponentName} 切换了宝可梦: ${newPokemon.name}`, 'enemy');
+          addFloatingText(`切换至 ${newPokemon.name}`, newPokemon.color, 'ENEMY');
+          
+          setPvpState(prev => {
+            if (!prev) return null;
+            return {
+              ...prev,
+              opponentActiveIndex: index,
+              opponentPokemon: newPokemon,
+              opponentHp: newPokemon.hp,
+              opponentMaxHp: newPokemon.maxHp,
+              opponentShield: newPokemon.shield || 0
+            };
+          });
+        }
+        break;
+      }
       case 'END_TURN':
         setPvpState(prev => prev ? { ...prev, isMyTurn: true, turnNumber: prev.turnNumber + 1 } : null);
         startMyPVPTurn();
@@ -411,23 +596,28 @@ export default function App() {
 
   const startMyPVPTurn = () => {
     setPlayer(prev => prev ? { ...prev, energy: prev.maxEnergy, shield: 0 } : null);
-    const { hand, deck, discard } = piles;
-    let newDeck = [...deck];
-    let newDiscard = [...discard];
-    let newHand = [...hand];
+    
+    setPiles(prev => {
+      // Discard current hand
+      const newDiscard = [...prev.discard, ...prev.hand];
+      let newDeck = [...prev.deck];
+      let newHand: Card[] = [];
 
-    // Draw 5 cards
-    for (let i = 0; i < 5; i++) {
-      if (newDeck.length === 0) {
-        newDeck = shuffle(newDiscard);
-        newDiscard = [];
+      // Draw 5 cards
+      for (let i = 0; i < 5; i++) {
+        if (newDeck.length === 0) {
+          if (newDiscard.length === 0) break;
+          newDeck = shuffle(newDiscard);
+          newDiscard.length = 0;
+        }
+        if (newDeck.length > 0) {
+          newHand.push(newDeck.pop()!);
+        }
       }
-      if (newDeck.length > 0) {
-        newHand.push(newDeck.shift()!);
-      }
-    }
 
-    setPiles({ hand: newHand, deck: newDeck, discard: newDiscard });
+      return { hand: newHand, deck: newDeck, discard: newDiscard };
+    });
+    
     addLog("你的回合开始", 'system');
   };
 
@@ -437,6 +627,9 @@ export default function App() {
     socketRef.current?.emit('join_queue', {
       name: 'Player', // In a real app, this would be the user's name
       pokemon: player,
+      party: party,
+      inventory: inventory,
+      activeIndex: activePokemonIndex
     });
   };
 
@@ -471,6 +664,20 @@ export default function App() {
       opponentShield: 0,
       opponentHp: randomOpponent.maxHp,
       opponentMaxHp: randomOpponent.maxHp,
+      opponentParty: [{
+        ...randomOpponent,
+        hp: randomOpponent.maxHp,
+        maxHp: randomOpponent.maxHp,
+        shield: 0,
+        energy: randomOpponent.maxEnergy,
+        maxEnergy: randomOpponent.maxEnergy,
+        statusEffects: [],
+        level: 50,
+        xp: 0,
+        nextXp: 100
+      }],
+      opponentActiveIndex: 0,
+      opponentInventory: [],
       isAiOpponent: true
     };
 
@@ -493,14 +700,40 @@ export default function App() {
         await new Promise(r => setTimeout(r, 1500));
         
         // AI plays a card
-        const aiCards = INITIAL_DECKS[pvpState.opponentPokemon.id];
+        const aiCards = INITIAL_DECKS[pvpState.opponentPokemon.id] || INITIAL_DECKS['default'];
         const randomCard = aiCards[Math.floor(Math.random() * aiCards.length)];
         
+        setActiveSkillName(randomCard.name);
+        setTimeout(() => setActiveSkillName(null), 1500);
+
+        setEnemyAnimation(randomCard.type === 'ATTACK' ? 'attack' : 'skill');
+        showDialogue('ENEMY', randomCard.type === 'ATTACK' ? 'ATTACK' : 'SKILL');
+
+        setActiveVfx({ type: randomCard.vfx || (randomCard.type === 'ATTACK' ? 'physical' : 'buff'), target: randomCard.type === 'ATTACK' ? 'PLAYER' : 'ENEMY' });
+
+        if (randomCard.type === 'ATTACK') {
+          triggerShake(randomCard.damage && randomCard.damage > 10 ? 15 : 5);
+          await new Promise(r => setTimeout(r, 120)); 
+          if (randomCard.cost >= 2) {
+            setIsGlitching(true);
+            setTimeout(() => setIsGlitching(false), 150);
+          }
+        }
+
+        await new Promise(r => setTimeout(r, 400));
+        setActiveVfx(null);
+
         if (randomCard.damage) {
-          const actualDamage = Math.max(0, randomCard.damage - (player?.shield || 0));
           setPlayer(prev => {
             if (!prev) return null;
+            const actualDamage = Math.max(0, randomCard.damage! - prev.shield);
             const newHp = Math.max(0, prev.hp - actualDamage);
+            
+            addFloatingText(`-${actualDamage}`, '#ef4444', 'PLAYER');
+            setPlayerAnimation('hit');
+            showDialogue('PLAYER', 'HIT');
+            setTimeout(() => setPlayerAnimation('idle'), 500);
+
             if (newHp <= 0) {
               setWinner('ENEMY');
               setPhase('GAMEOVER');
@@ -511,17 +744,54 @@ export default function App() {
         
         if (randomCard.shield) {
           setPvpState(prev => prev ? { ...prev, opponentShield: prev.opponentShield + randomCard.shield! } : null);
+          addFloatingText(`+${randomCard.shield} 屏障`, '#60a5fa', 'ENEMY');
         }
 
-        addLog(`AI 使用了 ${randomCard.name}`, 'enemy');
-        addFloatingText(randomCard.name, pvpState.opponentPokemon.color, 'ENEMY');
+        if (randomCard.heal) {
+          setPvpState(prev => prev ? { ...prev, opponentHp: Math.min(prev.opponentMaxHp, prev.opponentHp + randomCard.heal!) } : null);
+          addFloatingText(`+${randomCard.heal} HP`, '#4ade80', 'ENEMY');
+        }
 
-        await new Promise(r => setTimeout(r, 1000));
+        if (randomCard.statusEffect) {
+          setPlayer(prev => {
+            if (!prev) return null;
+            const statusEffects = prev.statusEffects || [];
+            const existing = statusEffects.find(s => s.type === randomCard.statusEffect!.type);
+            const newStatusEffects = existing
+              ? statusEffects.map(s => s.type === randomCard.statusEffect!.type ? { ...s, value: s.value + randomCard.statusEffect!.value } : s)
+              : [...statusEffects, randomCard.statusEffect!];
+            
+            addFloatingText(randomCard.statusEffect!.type, '#c084fc', 'PLAYER');
+            return { ...prev, statusEffects: newStatusEffects };
+          });
+        }
+
+        if (randomCard.selfStatusEffect) {
+          setPvpState(prev => {
+            if (!prev) return null;
+            const statusEffects = prev.opponentPokemon.statusEffects || [];
+            const existing = statusEffects.find(s => s.type === randomCard.selfStatusEffect!.type);
+            const newStatusEffects = existing
+              ? statusEffects.map(s => s.type === randomCard.selfStatusEffect!.type ? { ...s, value: s.value + randomCard.selfStatusEffect!.value } : s)
+              : [...statusEffects, randomCard.selfStatusEffect!];
+            
+            addFloatingText(randomCard.selfStatusEffect!.type, '#facc15', 'ENEMY');
+            return {
+              ...prev,
+              opponentPokemon: {
+                ...prev.opponentPokemon,
+                statusEffects: newStatusEffects
+              }
+            };
+          });
+        }
+
+        addLog(`虚拟AI对手 使用了 ${randomCard.name}`, 'enemy');
         
-        setPvpState(prev => prev ? { ...prev, isMyTurn: true, turnNumber: prev.turnNumber + 1, opponentShield: 0 } : null);
+        await new Promise(r => setTimeout(r, 1000));
+        setPvpState(prev => prev ? { ...prev, isMyTurn: true, turnNumber: prev.turnNumber + 1 } : null);
         startMyPVPTurn();
       };
-      
       aiThink();
     }
   }, [phase, pvpState?.isMyTurn, pvpState?.isAiOpponent]);
@@ -557,6 +827,8 @@ export default function App() {
       };
       return newParty;
     });
+    
+    setUnlockedPokemonIds(prev => prev.includes(nextForm.id) ? prev : [...prev, nextForm.id]);
 
     // Add Ultimate Card
     const ultimateCard: Card = {
@@ -592,16 +864,12 @@ export default function App() {
     setGold(prev => prev - cost);
     
     // Refresh Cards
-    const allCards = Object.values(INITIAL_DECKS).flat();
-    const hasPremium = purchasedUpgrades.includes('premium_access');
+    const allCards = CARDS_DB;
     const randomCards = shuffle(allCards).slice(0, 3).map(c => {
       let basePrice = 50;
       if (c.rarity === 'UNCOMMON') basePrice = 100;
       if (c.rarity === 'RARE') basePrice = 180;
       if (c.rarity === 'STARTER') basePrice = 30;
-      
-      // Premium access increases chance of rare cards (though here we just pick random, 
-      // maybe we should filter by rarity if premium is active)
       
       return { 
         ...c, 
@@ -612,18 +880,33 @@ export default function App() {
     setShopCards(randomCards as any);
 
     // Refresh Relics
-    const relicsPool = shuffle(RELICS_DB).filter(r => !relics.find(pr => pr.id === r.id)).slice(0, 2);
-    setShopRelics(relicsPool);
+    const unownedRelics = RELICS_DB.filter(r => !relics.find(pr => pr.id === r.id));
+    const randomRelics = shuffle(unownedRelics).slice(0, 2);
+    setShopRelics(randomRelics);
 
     // Refresh Consumables
-    const consumablesPool = shuffle(CONSUMABLES_DB).slice(0, 3);
-    setShopConsumables(consumablesPool);
+    const randomConsumables = shuffle(CONSUMABLES_DB).slice(0, 4);
+    setShopConsumables(randomConsumables);
+
+    // Refresh Pokemon
+    const unownedPokemon = POKEMON_DB.filter(p => !unlockedPokemonIds.includes(p.id) && !p.isBoss && !p.isElite);
+    const randomPokemon = shuffle(unownedPokemon).slice(0, 2).map(p => ({
+      ...p,
+      hp: p.maxHp,
+      energy: p.maxEnergy,
+      statusEffects: [],
+      level: p.level || 1,
+      xp: p.xp || 0,
+      nextXp: p.nextXp || 100,
+      price: p.rarity === 'LEGENDARY' ? 1000 : p.rarity === 'EPIC' ? 500 : p.rarity === 'RARE' ? 250 : 150
+    }));
+    setShopPokemon(randomPokemon as EntityState[]);
 
     // Refresh Upgrades
     const upgradesPool = shuffle(SHOP_UPGRADES_DB).filter(u => !purchasedUpgrades.includes(u.id)).slice(0, 2);
     setShopUpgrades(upgradesPool);
 
-    addFloatingText('商店已刷新', '#facc15', 'PLAYER');
+    addFloatingText('商店已刷新', '#10b981', 'PLAYER');
   };
 
   const gainXp = (amount: number) => {
@@ -673,9 +956,16 @@ export default function App() {
   };
 
   const useConsumable = (consumable: Consumable, index: number) => {
-    if (phase !== 'BATTLE' && phase !== 'MAP' && phase !== 'HUB') return;
+    if (phase !== 'BATTLE' && phase !== 'MAP' && phase !== 'HUB' && phase !== 'PVP_BATTLE') return;
     
     setInventory(prev => prev.filter((_, i) => i !== index));
+
+    if (phase === 'PVP_BATTLE' && pvpState?.isMyTurn) {
+      socketRef.current?.emit('game_action', {
+        roomId: pvpState.roomId,
+        action: { type: 'USE_ITEM', item: consumable }
+      });
+    }
     
     switch (consumable.type) {
       case 'HEAL':
@@ -722,33 +1012,39 @@ export default function App() {
           addFloatingText('永久强化 (MAX HP+2)', '#4ade80', 'PLAYER');
         } else if (['poke_ball', 'great_ball', 'ultra_ball', 'master_ball'].includes(consumable.id)) {
           if (phase === 'BATTLE' && enemy) {
-            let bonus = 0;
-            if (consumable.id === 'great_ball') bonus = 10;
-            if (consumable.id === 'ultra_ball') bonus = 25;
-            const captureChance = consumable.id === 'master_ball' ? 100 : ((1 - (enemy.hp / enemy.maxHp)) * 100) + bonus;
-            const roll = Math.random() * 100;
-            if (roll < captureChance && !enemy.isBoss) {
-              addFloatingText('捕获成功! (CAPTURED)', '#4ade80', 'ENEMY');
-              const newPokemon: EntityState = {
-                ...enemy,
-                hp: Math.floor(enemy.maxHp * 0.5),
-                maxHp: enemy.maxHp,
-                shield: 0,
-                energy: 3,
-                maxEnergy: 3,
-                statusEffects: [],
-                level: 1,
-                xp: 0,
-                nextXp: 100,
-              };
-              setParty(prev => [...prev, newPokemon]);
-              const starterCards = INITIAL_DECKS[enemy.id] || [];
-              const newCards = starterCards.map(c => ({ ...c, uid: generateUUID(), isEquipped: true } as Card));
-              setPermanentDeck(prev => [...prev, ...newCards]);
-              setEnemy(e => e ? { ...e, hp: 0 } : null);
-            } else {
-              addFloatingText('捕获失败 (FAILED)', '#ef4444', 'ENEMY');
-            }
+            setIsCapturing(true);
+            addFloatingText('正在捕获...', '#facc15', 'ENEMY');
+            setTimeout(() => {
+              let bonus = 30; // Increased base bonus
+              if (consumable.id === 'great_ball') bonus += 30;
+              if (consumable.id === 'ultra_ball') bonus += 50;
+              const captureChance = consumable.id === 'master_ball' ? 100 : ((1 - (enemy.hp / enemy.maxHp)) * 100) + bonus;
+              const roll = Math.random() * 100;
+              if (roll < captureChance && !enemy.isBoss) {
+                addFloatingText('捕获成功! (CAPTURED)', '#4ade80', 'ENEMY');
+                const newPokemon: EntityState = {
+                  ...enemy,
+                  hp: Math.floor(enemy.maxHp * 0.5),
+                  maxHp: enemy.maxHp,
+                  shield: 0,
+                  energy: 3,
+                  maxEnergy: 3,
+                  statusEffects: [],
+                  level: enemy.level || 1,
+                  xp: enemy.xp || 0,
+                  nextXp: enemy.nextXp || 100,
+                };
+                setParty(prev => [...prev, newPokemon]);
+                setUnlockedPokemonIds(prev => [...prev, enemy.id]);
+                const starterCards = INITIAL_DECKS[enemy.id] || INITIAL_DECKS['default'];
+                const newCards = starterCards.map(c => ({ ...c, uid: generateUUID(), isEquipped: true } as Card));
+                setPermanentDeck(prev => [...prev, ...newCards]);
+                setEnemy(e => e ? { ...e, hp: 0 } : null);
+              } else {
+                addFloatingText('捕获失败 (FAILED)', '#ef4444', 'ENEMY');
+              }
+              setIsCapturing(false);
+            }, 3000);
           }
         } else if (consumable.id === 'revive' || consumable.id === 'max_revive') {
           const healPercent = consumable.id === 'max_revive' ? 1 : 0.5;
@@ -767,8 +1063,21 @@ export default function App() {
 
   const switchPokemon = (index: number) => {
     if (index === activePokemonIndex || !party[index]) return;
-    if (turn !== 'PLAYER' || isAnimating) return;
-    if (player!.energy < 1) {
+    if ((phase === 'BATTLE' || phase === 'PVP_BATTLE') && (turn !== 'PLAYER' && !pvpState?.isMyTurn)) return;
+    if (isAnimating) return;
+    
+    if (phase === 'PVP_BATTLE' && pvpState?.isMyTurn) {
+      if (player!.energy < 1) {
+        addFloatingText('算力核心不足', '#ef4444', 'PLAYER');
+        return;
+      }
+      socketRef.current?.emit('game_action', {
+        roomId: pvpState.roomId,
+        action: { type: 'SWITCH_POKEMON', index }
+      });
+    }
+
+    if (player!.energy < 1 && phase !== 'HUB' && phase !== 'MAP') {
       addFloatingText('算力核心不足', '#ef4444', 'PLAYER');
       return;
     }
@@ -779,11 +1088,13 @@ export default function App() {
     
     // Switch to new pokemon
     const nextPokemon = updatedParty[index];
-    setPlayer({ ...nextPokemon, energy: player!.energy - 1 }); // Switching costs 1 energy
+    setPlayer({ ...nextPokemon, energy: phase === 'HUB' || phase === 'MAP' ? nextPokemon.maxEnergy : player!.energy - 1 }); // Switching costs 1 energy
     setParty(updatedParty);
     setActivePokemonIndex(index);
     addFloatingText(`切换至 ${nextPokemon.name}`, nextPokemon.color, 'PLAYER');
-    showDialogue('PLAYER', 'START');
+    if (phase === 'BATTLE' || phase === 'PVP_BATTLE') {
+      showDialogue('PLAYER', 'START');
+    }
     setShowPartySwitch(false);
   };
   const [enemyAnimation, setEnemyAnimation] = useState<'idle' | 'attack' | 'hit' | 'skill'>('idle');
@@ -817,7 +1128,10 @@ export default function App() {
   };
 
   // --- Deck & Piles ---
-  const [piles, setPiles] = useState<CombatPiles>({ hand: [], deck: [], discard: [] });
+  const [piles, setPiles] = useState<CombatPiles>(() => {
+    const saved = localStorage.getItem('cyberpoke_piles');
+    return saved ? JSON.parse(saved) : { hand: [], deck: [], discard: [] };
+  });
 
   const hand = piles.hand;
   const deck = piles.deck;
@@ -834,8 +1148,14 @@ export default function App() {
   };
 
   // --- Entities ---
-  const [player, setPlayer] = useState<EntityState | null>(null);
-  const [enemy, setEnemy] = useState<EntityState | null>(null);
+  const [player, setPlayer] = useState<EntityState | null>(() => {
+    const saved = localStorage.getItem('cyberpoke_player');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [enemy, setEnemy] = useState<EntityState | null>(() => {
+    const saved = localStorage.getItem('cyberpoke_enemy');
+    return saved ? JSON.parse(saved) : null;
+  });
 
   // --- Refs for latest state (to avoid stale closures in async functions) ---
   const playerRef = useRef<EntityState | null>(null);
@@ -852,8 +1172,43 @@ export default function App() {
   useEffect(() => { discardRef.current = discard; }, [discard]);
 
   // --- Powers (Permanent Buffs) ---
-  const [playerPowers, setPlayerPowers] = useState<string[]>([]);
-  const [enemyPowers, setEnemyPowers] = useState<string[]>([]);
+  const [playerPowers, setPlayerPowers] = useState<string[]>(() => {
+    const saved = localStorage.getItem('cyberpoke_player_powers');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [enemyPowers, setEnemyPowers] = useState<string[]>(() => {
+    const saved = localStorage.getItem('cyberpoke_enemy_powers');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // Persistence Effects
+  useEffect(() => {
+    localStorage.setItem('cyberpoke_phase', phase);
+    localStorage.setItem('cyberpoke_floor', floor.toString());
+    localStorage.setItem('cyberpoke_relics', JSON.stringify(relics));
+    localStorage.setItem('cyberpoke_gold', gold.toString());
+    localStorage.setItem('cyberpoke_deck', JSON.stringify(permanentDeck));
+    localStorage.setItem('cyberpoke_map', JSON.stringify(map));
+    localStorage.setItem('cyberpoke_node', currentNodeId || '');
+    localStorage.setItem('cyberpoke_inventory', JSON.stringify(inventory));
+    localStorage.setItem('cyberpoke_tasks', JSON.stringify(tasks));
+    localStorage.setItem('cyberpoke_last_checkin', lastCheckIn || '');
+    localStorage.setItem('cyberpoke_tickets', gachaTickets.toString());
+    localStorage.setItem('cyberpoke_party', JSON.stringify(party));
+    localStorage.setItem('cyberpoke_active_idx', activePokemonIndex.toString());
+    localStorage.setItem('cyberpoke_upgrades', JSON.stringify(purchasedUpgrades));
+    localStorage.setItem('cyberpoke_unlocked', JSON.stringify(unlockedPokemonIds));
+    localStorage.setItem('cyberpoke_player', JSON.stringify(player));
+    localStorage.setItem('cyberpoke_enemy', JSON.stringify(enemy));
+    localStorage.setItem('cyberpoke_piles', JSON.stringify(piles));
+    localStorage.setItem('cyberpoke_player_powers', JSON.stringify(playerPowers));
+    localStorage.setItem('cyberpoke_enemy_powers', JSON.stringify(enemyPowers));
+    localStorage.setItem('cyberpoke_shop_cards', JSON.stringify(shopCards));
+    localStorage.setItem('cyberpoke_shop_relics', JSON.stringify(shopRelics));
+    localStorage.setItem('cyberpoke_shop_consumables', JSON.stringify(shopConsumables));
+    localStorage.setItem('cyberpoke_shop_pokemon', JSON.stringify(shopPokemon));
+    localStorage.setItem('cyberpoke_shop_upgrades', JSON.stringify(shopUpgrades));
+  }, [phase, floor, relics, gold, permanentDeck, map, currentNodeId, inventory, tasks, lastCheckIn, gachaTickets, party, activePokemonIndex, purchasedUpgrades, unlockedPokemonIds, player, enemy, piles, playerPowers, enemyPowers, shopCards, shopRelics, shopConsumables, shopPokemon, shopUpgrades]);
 
   // --- Refs ---
   const containerRef = useRef<HTMLDivElement>(null);
@@ -934,7 +1289,7 @@ export default function App() {
 
   const initGame = (selectedId: string) => {
     const pBase = POKEMON_DB.find(p => p.id === selectedId)!;
-    const initialDeck = INITIAL_DECKS[selectedId].map(c => ({ ...c, uid: generateUUID(), isEquipped: true } as Card));
+    const initialDeck = (INITIAL_DECKS[selectedId] || INITIAL_DECKS['default']).map(c => ({ ...c, uid: generateUUID(), isEquipped: true } as Card));
     
     const initialPokemon: EntityState = {
       ...pBase,
@@ -950,6 +1305,7 @@ export default function App() {
     };
     
     setParty([initialPokemon]);
+    setUnlockedPokemonIds(prev => prev.includes(selectedId) ? prev : [...prev, selectedId]);
     setActivePokemonIndex(0);
     setPlayer(initialPokemon);
     setPermanentDeck(initialDeck);
@@ -959,6 +1315,7 @@ export default function App() {
       CONSUMABLES_DB.find(c => c.id === 'poke_ball')!
     ]);
     setPhase('HUB');
+    addLog(`初始化成功: 协议 [${pBase.name}] 已激活`, 'system');
   };
 
   const startEndlessTower = () => {
@@ -1106,9 +1463,14 @@ export default function App() {
       });
       const relicsPool = shuffle(RELICS_DB).filter(r => !relics.find(pr => pr.id === r.id)).slice(0, 2);
       const consumablesPool = shuffle(CONSUMABLES_DB).slice(0, 3);
+      const unownedPokemon = POKEMON_DB.filter(p => !unlockedPokemonIds.includes(p.id) && (!p.level || p.level === 1) && !p.isBoss && !p.isElite);
+      const pokemonPool = shuffle(unownedPokemon).slice(0, 2).map(p => ({
+        ...p, hp: p.maxHp, energy: p.maxEnergy, statusEffects: [], level: p.level || 1, xp: p.xp || 0, nextXp: p.nextXp || 100, price: p.rarity === 'LEGENDARY' ? 1000 : p.rarity === 'EPIC' ? 500 : p.rarity === 'RARE' ? 250 : 100
+      }));
       setShopCards(cards as any);
       setShopRelics(relicsPool);
       setShopConsumables(consumablesPool);
+      setShopPokemon(pokemonPool as EntityState[]);
       setPhase('SHOP');
     } else if (node.type === 'REST') {
       setPhase('REST');
@@ -1255,32 +1617,35 @@ export default function App() {
     const setter = target === 'PLAYER' ? setPlayer : setEnemy;
     setter(prev => {
       if (!prev) return null;
-      const existing = prev.statusEffects.find(s => s.type === type);
+      const statusEffects = prev.statusEffects || [];
+      const existing = statusEffects.find(s => s.type === type);
       if (existing) {
         return {
           ...prev,
-          statusEffects: prev.statusEffects.map(s => s.type === type ? { ...s, value: s.value + value } : s)
+          statusEffects: statusEffects.map(s => s.type === type ? { ...s, value: s.value + value } : s)
         };
       }
-      return { ...prev, statusEffects: [...prev.statusEffects, { type, value }] };
+      return { ...prev, statusEffects: [...statusEffects, { type, value }] };
     });
   };
 
   const calculateDamage = (base: number, attacker: EntityState, defender: EntityState) => {
     let dmg = base;
-    const strength = attacker.statusEffects.find(s => s.type === 'STRENGTH')?.value || 0;
+    const attackerStatus = attacker.statusEffects || [];
+    const defenderStatus = defender.statusEffects || [];
+    const strength = attackerStatus.find(s => s.type === 'STRENGTH')?.value || 0;
     dmg += strength;
 
     // Relic: Chip
     if (playerRef.current && attacker.id === playerRef.current.id && relics.find(r => r.id === 'chip')) dmg += 1;
 
-    const weak = attacker.statusEffects.find(s => s.type === 'WEAK');
+    const weak = attackerStatus.find(s => s.type === 'WEAK');
     if (weak && weak.value > 0) dmg = Math.floor(dmg * 0.75);
-    const vuln = defender.statusEffects.find(s => s.type === 'VULNERABLE');
+    const vuln = defenderStatus.find(s => s.type === 'VULNERABLE');
     if (vuln && vuln.value > 0) dmg = Math.floor(dmg * 1.5);
     
     // Pikachu Charge Mechanic
-    const charge = attacker.statusEffects.find(s => s.type === 'CHARGE');
+    const charge = attackerStatus.find(s => s.type === 'CHARGE');
     if (charge && charge.value >= 3) {
       dmg = Math.floor(dmg * 2);
     }
@@ -1295,6 +1660,9 @@ export default function App() {
     if (!currentPlayer || !currentEnemy || isAnimating || currentPlayer.energy < card.cost || card.type === 'CURSE') return;
 
     setIsAnimating(true);
+    setActiveSkillName(card.name);
+    setTimeout(() => setActiveSkillName(null), 1500);
+    
     setPlayerAnimation(card.type === 'ATTACK' ? 'attack' : 'skill');
     showDialogue('PLAYER', card.type === 'ATTACK' ? 'ATTACK' : 'SKILL');
     
@@ -1302,7 +1670,7 @@ export default function App() {
     setPiles(prev => ({ ...prev, hand: prev.hand.filter(c => c.uid !== card.uid) }));
 
     // VFX & Hit-stop
-    setActiveVfx({ type: card.vfx || 'physical', target: 'ENEMY' });
+    setActiveVfx({ type: card.vfx || (card.type === 'ATTACK' ? 'physical' : 'buff'), target: card.type === 'ATTACK' ? 'ENEMY' : 'PLAYER' });
     
     if (card.type === 'ATTACK') {
       triggerShake(card.damage && card.damage > 10 ? 15 : 5);
@@ -1393,6 +1761,80 @@ export default function App() {
     setIsAnimating(false);
   };
 
+  const executeSkill = async (skill: any) => {
+    const currentPlayer = playerRef.current;
+    const currentEnemy = enemyRef.current;
+    if (!currentPlayer || !currentEnemy || isAnimating || currentPlayer.energy < skill.cost) return;
+
+    setIsAnimating(true);
+    setActiveSkillName(skill.name);
+    setTimeout(() => setActiveSkillName(null), 1500);
+    
+    setPlayerAnimation('skill');
+    showDialogue('PLAYER', 'SKILL');
+    
+    setPlayer(prev => prev ? { ...prev, energy: prev.energy - skill.cost } : null);
+
+    // VFX
+    setActiveVfx({ type: skill.vfx || 'buff', target: skill.damage ? 'ENEMY' : 'PLAYER' });
+    
+    if (skill.damage) {
+      triggerShake(skill.damage > 10 ? 15 : 5);
+    }
+
+    await new Promise(r => setTimeout(r, 600));
+    setActiveVfx(null);
+
+    // Logic
+    if (skill.damage) {
+      const attacker = playerRef.current!;
+      const defender = enemyRef.current!;
+      const finalDmg = calculateDamage(skill.damage, attacker, defender);
+      
+      setEnemy(prev => {
+        if (!prev) return null;
+        let d = finalDmg;
+        let s = prev.shield;
+        if (s >= d) { s -= d; d = 0; } else { d -= s; s = 0; }
+        return { ...prev, shield: s, hp: Math.max(0, prev.hp - d) };
+      });
+      addFloatingText(`-${finalDmg}`, '#ef4444', 'ENEMY');
+      setEnemyAnimation('hit');
+      setTimeout(() => setEnemyAnimation('idle'), 500);
+    }
+
+    if (skill.shield) {
+      const dex = playerRef.current?.statusEffects.find(s => s.type === 'DEXTERITY')?.value || 0;
+      const totalShield = skill.shield + dex;
+      setPlayer(prev => prev ? { ...prev, shield: prev.shield + totalShield } : null);
+      addFloatingText(`+${totalShield} 屏障`, '#60a5fa', 'PLAYER');
+    }
+
+    if (skill.heal) {
+      setPlayer(prev => prev ? { ...prev, hp: Math.min(prev.maxHp, prev.hp + skill.heal) } : null);
+      addFloatingText(`+${skill.heal} 修复`, '#4ade80', 'PLAYER');
+    }
+
+    if (skill.selfDamage) {
+      setPlayer(prev => prev ? { ...prev, hp: Math.max(1, prev.hp - skill.selfDamage) } : null);
+      addFloatingText(`-${skill.selfDamage}`, '#ef4444', 'PLAYER');
+      setPlayerAnimation('hit');
+      setTimeout(() => setPlayerAnimation('idle'), 500);
+    }
+
+    if (skill.statusEffect) {
+      applyStatus('ENEMY', skill.statusEffect.type, skill.statusEffect.value);
+      addFloatingText(skill.statusEffect.type, '#c084fc', 'ENEMY');
+    }
+
+    if (skill.selfStatusEffect) {
+      applyStatus('PLAYER', skill.selfStatusEffect.type, skill.selfStatusEffect.value);
+      addFloatingText(skill.selfStatusEffect.type, '#facc15', 'PLAYER');
+    }
+
+    setIsAnimating(false);
+  };
+
   const endPlayerTurn = () => {
     if (turn !== 'PLAYER' || isAnimating) return;
     setTurn('ENEMY');
@@ -1447,9 +1889,12 @@ export default function App() {
 
       const intent = currentEnemy.intent!;
       setEnemyAnimation(intent.type === 'ATTACK' ? 'attack' : 'skill');
+      setActiveSkillName(intent.desc || (intent.type === 'ATTACK' ? '基础攻击' : '系统指令'));
+      setTimeout(() => setActiveSkillName(null), 1500);
+      
       showDialogue('ENEMY', intent.type === 'ATTACK' ? 'ATTACK' : 'SKILL');
       
-      setActiveVfx({ type: 'physical', target: 'PLAYER' });
+      setActiveVfx({ type: intent.type === 'ATTACK' ? 'physical' : 'buff', target: intent.type === 'ATTACK' ? 'PLAYER' : 'ENEMY' });
       
       if (intent.type === 'ATTACK') {
         const dmg = calculateDamage(intent.value!, currentEnemy, currentPlayer);
@@ -1490,7 +1935,7 @@ export default function App() {
       // Status Effect Decrement Logic
       const decrementStatus = (effects: StatusEffect[]) => {
         const turnBased: StatusType[] = ['VULNERABLE', 'WEAK', 'POISON', 'OVERLOAD'];
-        return effects.map(s => {
+        return (effects || []).map(s => {
           if (turnBased.includes(s.type)) {
             return { ...s, value: s.value - 1 };
           }
@@ -1548,9 +1993,18 @@ export default function App() {
   useEffect(() => {
     if (phase === 'BATTLE') {
       if (player && player.hp <= 0) {
-        showDialogue('ENEMY', 'WIN');
-        setPhase('GAMEOVER');
-        setWinner('ENEMY');
+        // Check if there are other alive Pokemon in the party
+        const nextAliveIdx = party.findIndex((p, idx) => idx !== activePokemonIndex && p.hp > 0);
+        if (nextAliveIdx !== -1) {
+          const nextPokemon = party[nextAliveIdx];
+          setPlayer(nextPokemon);
+          setActivePokemonIndex(nextAliveIdx);
+          addFloatingText(`切换至 ${nextPokemon.name}`, nextPokemon.color, 'PLAYER');
+        } else {
+          showDialogue('ENEMY', 'WIN');
+          setPhase('GAMEOVER');
+          setWinner('ENEMY');
+        }
       } else if (enemy && enemy.hp <= 0) {
         // Prevent double call
         setPhase('REWARD_TRANSITION'); 
@@ -1631,7 +2085,7 @@ export default function App() {
       <div className="flex-1 flex flex-col relative">
         {/* Enemy Lineup */}
         <div className="absolute top-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-          {endlessLineup.enemy.map((e, i) => (
+          {endlessLineup.enemy?.map((e, i) => (
             <div 
               key={i} 
               className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center transition-all ${i === endlessLineup.enemyIdx ? 'border-red-500 bg-red-500/20 scale-110' : i < endlessLineup.enemyIdx ? 'border-white/5 opacity-20' : 'border-white/20 opacity-60'}`}
@@ -1643,7 +2097,7 @@ export default function App() {
 
         {/* Player Lineup */}
         <div className="absolute bottom-32 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-          {endlessLineup.player.map((p, i) => (
+          {endlessLineup.player?.map((p, i) => (
             <div 
               key={i} 
               onClick={() => {
@@ -1683,7 +2137,7 @@ export default function App() {
           const nodes = map.filter(n => n.floor === f + 1);
           return (
             <div key={f} className="flex justify-around w-full relative z-10">
-              {nodes.map(node => {
+              {nodes?.map(node => {
                 const isCurrentFloor = floor === node.floor;
                 const isVisited = floor > node.floor;
                 
@@ -1735,7 +2189,7 @@ export default function App() {
 
   const renderInventory = () => (
     <div className="fixed top-4 right-4 flex gap-2 z-[60]">
-      {inventory.map((item, i) => (
+      {inventory?.map((item, i) => (
         <motion.div
           key={i}
           whileHover={{ scale: 1.1, y: -5 }}
@@ -1774,7 +2228,7 @@ export default function App() {
               </button>
             </div>
             <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
-              {tasks.map((task) => (
+              {tasks?.map((task) => (
                 <div key={task.id} className={`p-4 border rounded-2xl transition-all ${task.isClaimed ? 'bg-white/5 border-white/5 opacity-50' : 'bg-white/5 border-white/10 hover:border-cyan-500/50'}`}>
                   <div className="flex justify-between items-start mb-2">
                     <div>
@@ -1871,7 +2325,7 @@ export default function App() {
     </div>
   );
   const renderPVPBattle = () => {
-    if (!pvpState) return null;
+    if (!pvpState || !player) return null;
 
     return (
       <div className="h-full w-full bg-[#05050a] p-8 text-white flex flex-col relative overflow-hidden">
@@ -1884,11 +2338,11 @@ export default function App() {
                 filter: ["hue-rotate(0deg)", "hue-rotate(10deg)", "hue-rotate(0deg)"]
               }}
               transition={{ duration: 4, repeat: Infinity }}
-              className={`w-64 h-64 rounded-full flex items-center justify-center relative z-20 ${pvpState.opponentPokemon.bgGradient} border-4 border-white/20 shadow-[0_0_50px_rgba(255,255,255,0.1)]`}
+              className={`w-64 h-64 rounded-full flex items-center justify-center relative z-20 ${pvpState.opponentPokemon?.bgGradient || ''} border-4 border-white/20 shadow-[0_0_50px_rgba(255,255,255,0.1)]`}
             >
               <img 
-                src={pvpState.opponentPokemon.img} 
-                alt={pvpState.opponentPokemon.name}
+                src={pvpState.opponentPokemon?.img} 
+                alt={pvpState.opponentPokemon?.name}
                 className="w-48 h-48 object-contain drop-shadow-[0_0_20px_rgba(255,255,255,0.5)]"
                 referrerPolicy="no-referrer"
               />
@@ -1898,7 +2352,7 @@ export default function App() {
             <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 w-80 bg-black/80 backdrop-blur-md border border-white/20 p-4 rounded-2xl z-30">
               <div className="flex justify-between items-end mb-2">
                 <span className="text-xl font-black italic text-red-400 uppercase tracking-tighter">{pvpState.opponentName}</span>
-                <span className="text-xs font-mono opacity-60">LV.{pvpState.opponentPokemon.level}</span>
+                <span className="text-xs font-mono opacity-60">LV.{pvpState.opponentPokemon?.level}</span>
               </div>
               
               <div className="w-full h-3 bg-white/5 rounded-full overflow-hidden border border-white/10 mb-1">
@@ -1912,12 +2366,15 @@ export default function App() {
                 <span className="text-red-400">HP {pvpState.opponentHp}/{pvpState.opponentMaxHp}</span>
                 {pvpState.opponentShield > 0 && <span className="text-blue-400">SHIELD {pvpState.opponentShield}</span>}
               </div>
+              <div className="flex gap-1 mt-2">
+                {pvpState.opponentPokemon?.statusEffects?.map((s, i) => <StatusIcon key={i} effect={s} />)}
+              </div>
             </div>
           </div>
           
           {/* Opponent Hand Count */}
           <div className="mt-20 flex gap-1">
-            {[...Array(pvpState.opponentHandCount)].map((_, i) => (
+            {[...Array(pvpState.opponentHandCount || 0)].map((_, i) => (
               <div key={i} className="w-8 h-12 bg-red-950/40 border border-red-500/30 rounded-md transform -rotate-6" />
             ))}
           </div>
@@ -1928,6 +2385,17 @@ export default function App() {
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black px-4 py-1 border border-white/20 rounded-full text-xs font-black italic uppercase text-white/40">
             Turn {pvpState.turnNumber} - {pvpState.isMyTurn ? "你的回合" : "对手回合"}
           </div>
+        </div>
+
+        {/* Opponent Party Status */}
+        <div className="flex gap-2 justify-center mb-4">
+          {pvpState.opponentParty?.map((p, i) => (
+            <div 
+              key={i} 
+              className={`w-3 h-3 rounded-full border ${i === pvpState.opponentActiveIndex ? 'bg-red-500 border-red-400 animate-pulse' : p.hp <= 0 ? 'bg-gray-800 border-gray-700' : 'bg-red-900/40 border-red-500/30'}`}
+              title={p.name}
+            />
+          ))}
         </div>
 
         {/* Player Section */}
@@ -1969,14 +2437,28 @@ export default function App() {
                 <span className="text-cyan-400">HP {player.hp}/{player.maxHp}</span>
                 {player.shield > 0 && <span className="text-blue-400">SHIELD {player.shield}</span>}
               </div>
+              <div className="flex gap-1 mt-2">
+                {player?.statusEffects?.map((s, i) => <StatusIcon key={i} effect={s} />)}
+              </div>
             </div>
+          </div>
+          
+          {/* Player Party Status */}
+          <div className="flex gap-2 mt-4">
+            {party?.map((p, i) => (
+              <div 
+                key={i} 
+                className={`w-3 h-3 rounded-full border ${i === activePokemonIndex ? 'bg-cyan-500 border-cyan-400 animate-pulse' : p.hp <= 0 ? 'bg-gray-800 border-gray-700' : 'bg-cyan-900/40 border-cyan-500/30'}`}
+                title={p.name}
+              />
+            ))}
           </div>
         </div>
 
         {/* Hand UI */}
         <div className="fixed bottom-0 left-0 w-full p-8 flex justify-center items-end gap-2 z-50 pointer-events-none">
-          {piles.hand.map((card, i) => {
-            const canPlay = pvpState.isMyTurn && player.energy >= card.cost;
+          {piles.hand?.map((card, i) => {
+            const canPlay = pvpState.isMyTurn && player.energy >= card.cost && !isAnimating;
             return (
               <motion.div
                 key={card.uid}
@@ -2010,7 +2492,27 @@ export default function App() {
         </div>
 
         {/* Controls */}
-        <div className="fixed bottom-8 right-8 z-50">
+        <div className="fixed bottom-8 right-8 z-50 flex flex-col gap-4 items-end">
+          <div className="flex gap-4">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowBackpack(true)}
+              disabled={!pvpState.isMyTurn || isAnimating}
+              className="w-14 h-14 bg-cyan-500/20 border border-cyan-500/50 rounded-full flex items-center justify-center text-cyan-400 hover:bg-cyan-500 hover:text-black transition-all disabled:opacity-30"
+            >
+              <Briefcase className="w-6 h-6" />
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowPartySwitch(true)}
+              disabled={!pvpState.isMyTurn || isAnimating}
+              className="w-14 h-14 bg-purple-500/20 border border-purple-500/50 rounded-full flex items-center justify-center text-purple-400 hover:bg-purple-500 hover:text-black transition-all disabled:opacity-30"
+            >
+              <Layers className="w-6 h-6" />
+            </motion.button>
+          </div>
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -2029,25 +2531,135 @@ export default function App() {
     );
   };
 
-  const playPVPCard = (card: Card, index: number) => {
-    if (!pvpState || !pvpState.isMyTurn || !player || player.energy < card.cost) return;
+  const playPVPCard = async (card: Card, index: number) => {
+    if (!pvpState || !pvpState.isMyTurn || !player || player.energy < card.cost || isAnimating) return;
+
+    setIsAnimating(true);
+    setActiveSkillName(card.name);
+    setTimeout(() => setActiveSkillName(null), 1500);
+
+    setPlayerAnimation(card.type === 'ATTACK' ? 'attack' : 'skill');
+    showDialogue('PLAYER', card.type === 'ATTACK' ? 'ATTACK' : 'SKILL');
+
+    setActiveVfx({ type: card.vfx || (card.type === 'ATTACK' ? 'physical' : 'buff'), target: card.type === 'ATTACK' ? 'ENEMY' : 'PLAYER' });
+
+    if (card.type === 'ATTACK') {
+      triggerShake(card.damage && card.damage > 10 ? 15 : 5);
+      await new Promise(r => setTimeout(r, 120)); 
+      if (card.cost >= 2) {
+        setIsGlitching(true);
+        setTimeout(() => setIsGlitching(false), 150);
+      }
+    }
+
+    await new Promise(r => setTimeout(r, 400));
+    setActiveVfx(null);
 
     // Apply effects locally
     setPlayer(prev => prev ? { ...prev, energy: prev.energy - card.cost, shield: prev.shield + (card.shield || 0) } : null);
     
-    if (card.damage) {
-      const actualDamage = Math.max(0, card.damage - pvpState.opponentShield);
-      setPvpState(prev => prev ? {
+    // Move card to discard and handle draw
+    setPiles(prev => {
+      const newHand = [...prev.hand];
+      newHand.splice(index, 1);
+      let newDiscard = [...prev.discard, card];
+      let newDeck = [...prev.deck];
+      let drawnCards: Card[] = [];
+
+      if (card.draw) {
+        for (let i = 0; i < card.draw; i++) {
+          if (newDeck.length === 0) {
+            newDeck = shuffle(newDiscard);
+            newDiscard = [];
+          }
+          if (newDeck.length > 0) {
+            drawnCards.push(newDeck.pop()!);
+          }
+        }
+      }
+
+      return {
         ...prev,
-        opponentHp: Math.max(0, prev.opponentHp - actualDamage),
-        opponentShield: Math.max(0, prev.opponentShield - card.damage),
-      } : null);
+        hand: [...newHand, ...drawnCards],
+        deck: newDeck,
+        discard: newDiscard
+      };
+    });
+
+    if (card.damage) {
+      setPvpState(prev => {
+        if (!prev) return null;
+        const actualDamage = Math.max(0, card.damage! - prev.opponentShield);
+        const newOpponentHp = Math.max(0, prev.opponentHp - actualDamage);
+        
+        addFloatingText(`-${actualDamage}`, '#ef4444', 'ENEMY');
+        setEnemyAnimation('hit');
+        showDialogue('ENEMY', 'HIT');
+        setTimeout(() => setEnemyAnimation('idle'), 500);
+
+        if (newOpponentHp <= 0) {
+          setWinner('PLAYER');
+          setPhase('VICTORY');
+          if (!prev.isAiOpponent) {
+            socketRef.current?.emit('game_action', {
+              roomId: prev.roomId,
+              action: { type: 'GAME_OVER', winner: 'OPPONENT' }
+            });
+          }
+        }
+
+        return {
+          ...prev,
+          opponentHp: newOpponentHp,
+          opponentShield: Math.max(0, prev.opponentShield - card.damage!),
+        };
+      });
     }
 
-    // Move card to discard
-    const newHand = [...piles.hand];
-    newHand.splice(index, 1);
-    setPiles(prev => ({ ...prev, hand: newHand, discard: [...prev.discard, card] }));
+    if (card.shield) {
+      addFloatingText(`+${card.shield} 屏障`, '#60a5fa', 'PLAYER');
+    }
+
+    if (card.statusEffect) {
+      setPvpState(prev => {
+        if (!prev) return null;
+        const statusEffects = prev.opponentPokemon.statusEffects || [];
+        const existing = statusEffects.find(s => s.type === card.statusEffect!.type);
+        const newStatusEffects = existing
+          ? statusEffects.map(s => s.type === card.statusEffect!.type ? { ...s, value: s.value + card.statusEffect!.value } : s)
+          : [...statusEffects, card.statusEffect!];
+        
+        return {
+          ...prev,
+          opponentPokemon: {
+            ...prev.opponentPokemon,
+            statusEffects: newStatusEffects
+          }
+        };
+      });
+      addFloatingText(card.statusEffect.type, '#c084fc', 'ENEMY');
+    }
+
+    if (card.selfStatusEffect) {
+      setPlayer(prev => {
+        if (!prev) return null;
+        const statusEffects = prev.statusEffects || [];
+        const existing = statusEffects.find(s => s.type === card.selfStatusEffect!.type);
+        if (existing) {
+          return {
+            ...prev,
+            statusEffects: statusEffects.map(s => s.type === card.selfStatusEffect!.type ? { ...s, value: s.value + card.selfStatusEffect!.value } : s)
+          };
+        }
+        return { ...prev, statusEffects: [...statusEffects, card.selfStatusEffect!] };
+      });
+      addFloatingText(card.selfStatusEffect.type, '#facc15', 'PLAYER');
+    }
+
+    if (card.heal) {
+      setPlayer(prev => prev ? { ...prev, hp: Math.min(prev.maxHp, prev.hp + card.heal!) } : null);
+      addFloatingText(`+${card.heal} HP`, '#4ade80', 'PLAYER');
+    }
 
     // Send action to opponent
     if (!pvpState.isAiOpponent) {
@@ -2059,31 +2671,37 @@ export default function App() {
 
     addLog(`你使用了 ${card.name}`, 'player');
 
-    // Check for victory
-    if (pvpState.opponentHp <= 0) {
-      setWinner('PLAYER');
-      setPhase('VICTORY');
-      if (!pvpState.isAiOpponent) {
-        socketRef.current?.emit('game_action', {
-          roomId: pvpState.roomId,
-          action: { type: 'GAME_OVER', winner: 'OPPONENT' }
-        });
-      }
-    }
+    setIsAnimating(false);
   };
 
   const endPVPTurn = () => {
     if (!pvpState || !pvpState.isMyTurn) return;
 
-    setPvpState(prev => prev ? { ...prev, isMyTurn: false } : null);
-    
+    // Sync state before ending turn
     if (!pvpState.isAiOpponent) {
+      socketRef.current?.emit('game_action', {
+        roomId: pvpState.roomId,
+        action: { 
+          type: 'UPDATE_STATE', 
+          state: { 
+            opponentParty: party,
+            opponentInventory: inventory,
+            opponentActiveIndex: activePokemonIndex,
+            opponentHp: player?.hp,
+            opponentMaxHp: player?.maxHp,
+            opponentShield: player?.shield,
+            opponentPokemon: player
+          } 
+        }
+      });
+
       socketRef.current?.emit('game_action', {
         roomId: pvpState.roomId,
         action: { type: 'END_TURN' }
       });
     }
 
+    setPvpState(prev => prev ? { ...prev, isMyTurn: false } : null);
     addLog("回合结束", 'system');
   };
   const renderHub = () => (
@@ -2127,10 +2745,15 @@ export default function App() {
             const relicsPool = shuffle(RELICS_DB).filter(r => !relics.find(pr => pr.id === r.id)).slice(0, 2);
             const consumablesPool = shuffle(CONSUMABLES_DB).slice(0, 3);
             const upgradesPool = shuffle(SHOP_UPGRADES_DB).filter(u => !purchasedUpgrades.includes(u.id)).slice(0, 2);
+            const unownedPokemon = POKEMON_DB.filter(p => !unlockedPokemonIds.includes(p.id) && (!p.level || p.level === 1) && !p.isBoss && !p.isElite);
+            const pokemonPool = shuffle(unownedPokemon).slice(0, 2).map(p => ({
+              ...p, hp: p.maxHp, energy: p.maxEnergy, statusEffects: [], level: p.level || 1, xp: p.xp || 0, nextXp: p.nextXp || 100, price: p.rarity === 'LEGENDARY' ? 1000 : p.rarity === 'EPIC' ? 500 : p.rarity === 'RARE' ? 250 : 100
+            }));
             setShopCards(randomCards as any);
             setShopRelics(relicsPool);
             setShopConsumables(consumablesPool);
             setShopUpgrades(upgradesPool);
+            setShopPokemon(pokemonPool as EntityState[]);
             setPhase('SHOP');
           }}
           className="p-6 border-2 border-yellow-500/30 bg-yellow-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-yellow-400 hover:bg-yellow-900/20 transition-all group"
@@ -2148,6 +2771,16 @@ export default function App() {
           <Database className="w-12 h-12 text-purple-400 mb-4 group-hover:rotate-12 transition-transform" />
           <h3 className="text-xl font-black italic uppercase">背包系统</h3>
           <p className="text-[10px] opacity-60 mt-2 text-center">协议数: {permanentDeck.length}</p>
+        </motion.div>
+
+        <motion.div 
+          whileHover={{ scale: 1.05, y: -5 }}
+          onClick={() => setPhase('COLLECTION')}
+          className="p-6 border-2 border-yellow-500/30 bg-yellow-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-yellow-400 hover:bg-yellow-900/20 transition-all group"
+        >
+          <BookOpen className="w-12 h-12 text-yellow-400 mb-4" />
+          <h3 className="text-xl font-black italic uppercase">藏品库</h3>
+          <p className="text-[10px] opacity-60 mt-2 text-center">查看高级藏品</p>
         </motion.div>
 
         <motion.div 
@@ -2185,12 +2818,12 @@ export default function App() {
 
         <motion.div 
           whileHover={{ scale: 1.05, y: -5 }}
-          onClick={() => setShowEvolution(true)}
-          className="p-6 border-2 border-emerald-500/30 bg-emerald-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-900/20 transition-all group"
+          onClick={() => setPhase('START')}
+          className="p-6 border-2 border-gray-500/30 bg-gray-950/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 hover:bg-gray-900/20 transition-all group"
         >
-          <Activity className="w-12 h-12 text-emerald-400 mb-4 group-hover:animate-pulse" />
-          <h3 className="text-xl font-black italic uppercase">进化实验室</h3>
-          <p className="text-[10px] opacity-60 mt-2 text-center">提升协议等级</p>
+          <X className="w-12 h-12 text-gray-400 mb-4 group-hover:animate-pulse" />
+          <h3 className="text-xl font-black italic uppercase">终止协议</h3>
+          <p className="text-[10px] opacity-60 mt-2 text-center">重置系统状态</p>
         </motion.div>
 
         <motion.div 
@@ -2250,6 +2883,26 @@ export default function App() {
     </div>
   );
 
+  const renderCollection = () => {
+    return (
+      <div className="h-full w-full bg-[#05050a] text-white p-8 overflow-y-auto custom-scrollbar">
+        <button onClick={() => setPhase('HUB')} className="mb-8 p-2 border border-white/20 rounded-full hover:bg-white/10">
+          <ArrowLeft className="w-6 h-6" />
+        </button>
+        <h2 className="text-4xl font-black italic text-yellow-400 mb-8">藏品库 (COLLECTION)</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {COLLECTION_DB.map((relic, i) => (
+            <div key={relic.id || i} className="bg-white/5 p-6 rounded-3xl border border-white/10">
+              <h4 className="text-xl font-black italic text-white uppercase">{relic.name}</h4>
+              <p className="text-xs text-white/60 mt-2">{relic.desc}</p>
+              <span className="text-[10px] font-mono text-yellow-400 uppercase mt-4 block">{relic.rarity}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   const renderShop = () => {
     const hasDiscount = purchasedUpgrades.includes('bulk_discount');
     const getPrice = (base: number) => hasDiscount ? Math.floor(base * 0.85) : base;
@@ -2260,10 +2913,10 @@ export default function App() {
         {/* Sticky Header with improved contrast */}
         <div className="shrink-0 w-full bg-[#05050a]/90 backdrop-blur-xl border-b border-white/10 py-8 z-30 flex flex-col items-center relative">
           <button 
-            onClick={() => setPhase('HUB')}
+            onClick={() => setPhase(currentNodeId ? 'MAP' : 'HUB')}
             className="absolute top-8 right-8 p-2 border border-white/20 rounded-full hover:bg-white/10 transition-all z-50 group"
           >
-            <Trash2 className="w-6 h-6 text-white/40 rotate-45 group-hover:text-white transition-colors" />
+            <X className="w-6 h-6 text-white/40 group-hover:text-white transition-colors" />
           </button>
           
           <div className="absolute top-8 left-8 flex items-center gap-4">
@@ -2286,11 +2939,58 @@ export default function App() {
         {/* Scrollable Content Area */}
         <div className="flex-1 w-full overflow-y-auto custom-scrollbar px-4 md:px-8 pt-8 pb-48">
           <div className="w-full max-w-6xl mx-auto space-y-16">
+            {/* Shop Pokemon Section */}
+            {shopPokemon && shopPokemon.length > 0 && (
+              <section>
+                <h3 className="text-2xl font-black italic text-purple-400 uppercase mb-8 border-l-4 border-purple-400 pl-4">黑市宝可梦 (BLACK MARKET POKEMON)</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {shopPokemon.map((pokemon, i) => {
+                    const price = getPrice(pokemon.price || 500);
+                    return (
+                      <div key={pokemon.id || i} className="flex flex-col items-center gap-4 bg-white/5 p-6 rounded-3xl border border-white/10 hover:border-purple-500/30 transition-all group relative">
+                        <img src={pokemon.img} alt={pokemon.name} className="w-32 h-32 object-contain drop-shadow-2xl" />
+                        <div className="text-center">
+                          <h4 className="text-xl font-black italic text-white">{pokemon.name}</h4>
+                          <p className="text-xs text-white/50 mt-1">HP: {pokemon.maxHp} | 能量: {pokemon.maxEnergy}</p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            if (gold >= price) {
+                              setGold(g => g - price);
+                              setUnlockedPokemonIds(prev => [...prev, pokemon.id]);
+                              setParty(prev => [...prev, { ...pokemon, hp: pokemon.maxHp, energy: pokemon.maxEnergy, statusEffects: [], level: pokemon.level || 1, xp: pokemon.xp || 0, nextXp: pokemon.nextXp || 100 }]);
+                              
+                              const starterCards = INITIAL_DECKS[pokemon.id] || INITIAL_DECKS['default'];
+                              const newCards = starterCards.map(c => ({ ...c, uid: generateUUID(), isEquipped: true } as Card));
+                              setPermanentDeck(prev => [...prev, ...newCards]);
+                              
+                              setShopPokemon(prev => prev.filter(p => p.id !== pokemon.id));
+                              addFloatingText(`购买成功: ${pokemon.name}`, '#a855f7', 'PLAYER');
+                            } else {
+                              addFloatingText(`信用点不足 (${price})`, '#ef4444', 'PLAYER');
+                            }
+                          }}
+                          className={`w-full py-3 rounded-xl font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
+                            gold >= price 
+                              ? 'bg-purple-500/20 text-purple-400 hover:bg-purple-500 hover:text-white border border-purple-500/50' 
+                              : 'bg-white/5 text-white/30 cursor-not-allowed border border-white/10'
+                          }`}
+                        >
+                          <Coins className="w-4 h-4" />
+                          {price} 信用点
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
             {/* Shop Upgrades Section */}
             <section>
               <h3 className="text-2xl font-black italic text-emerald-400 uppercase mb-8 border-l-4 border-emerald-400 pl-4">系统升级 (SHOP UPGRADES)</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {shopUpgrades.map((upgrade, i) => (
+                {shopUpgrades?.map((upgrade, i) => (
                   <div key={upgrade.id || i} className="flex items-center gap-6 bg-white/5 p-6 rounded-3xl border border-white/10 hover:border-emerald-500/30 transition-all group">
                     <div className="w-24 h-24 bg-emerald-950/20 border-2 border-emerald-500/30 rounded-2xl flex items-center justify-center group-hover:border-emerald-400 transition-all shrink-0">
                       {upgrade.icon === 'ShoppingCart' && <ShoppingCart className="w-12 h-12 text-emerald-400" />}
@@ -2324,61 +3024,11 @@ export default function App() {
               </div>
             </section>
 
-            {/* New Terminals Section */}
-            <section>
-              <h3 className="text-2xl font-black italic text-purple-400 uppercase mb-8 border-l-4 border-purple-400 pl-4">终端访问</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {POKEMON_DB.filter(p => !party.find(pp => pp.id === p.id)).slice(0, 3).map(p => {
-                  const price = getPrice(300);
-                  return (
-                    <div key={p.id} className="bg-white/5 p-6 rounded-3xl border border-white/10 hover:border-purple-500/30 transition-all flex flex-col items-center group">
-                      <img src={p.img} alt={p.name} className="w-32 h-32 object-contain mb-4 group-hover:scale-110 transition-transform" referrerPolicy="no-referrer" />
-                      <h4 className="text-xl font-black italic text-white uppercase" style={{ color: p.color }}>{p.name}</h4>
-                      <div className="text-[10px] font-mono opacity-60 mt-2 uppercase">最大系统完整度: {p.maxHp} // 核心算力: {p.maxEnergy}</div>
-                      <button 
-                        onClick={() => {
-                          if (gold >= price) {
-                            setGold(prev => prev - price);
-                            const newPokemon: EntityState = {
-                              ...p,
-                              hp: p.maxHp,
-                              shield: 0,
-                              energy: p.maxEnergy,
-                              maxEnergy: p.maxEnergy,
-                              statusEffects: [],
-                              level: p.level || 1,
-                              xp: p.xp || 0,
-                              nextXp: p.nextXp || 100,
-                            };
-                            setParty(prev => [...prev, newPokemon]);
-                            
-                            // Add starter cards
-                            const starterCards = INITIAL_DECKS[p.id] || [];
-                            const newCards = starterCards.map(c => ({ ...c, uid: generateUUID(), isEquipped: true } as Card));
-                            setPermanentDeck(prev => [...prev, ...newCards]);
-                            
-                            addFloatingText(`已激活终端: ${p.name}`, p.color, 'PLAYER');
-                            updateTaskProgress('GOLD_SPENT', price);
-                          }
-                        }}
-                        disabled={gold < price}
-                        className={`mt-6 w-full py-3 border-2 font-black uppercase text-[10px] tracking-widest transition-all rounded-lg
-                          ${gold >= price ? 'border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black' : 'border-white/10 text-white/20 cursor-not-allowed'}
-                        `}
-                      >
-                        购买权限: {price}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-
             {/* Cards Section */}
             <section>
               <h3 className="text-2xl font-black italic text-cyan-400 uppercase mb-8 border-l-4 border-cyan-400 pl-4">协议卡牌 (PROTOCOLS)</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {shopCards.map((card: any, i) => {
+                {shopCards?.map((card: any, i) => {
                   const price = getPrice(card.price);
                   return (
                     <div key={card.uid || i} className="flex flex-col items-center gap-6 bg-white/5 p-6 rounded-3xl border border-white/10 hover:border-cyan-500/30 transition-all group">
@@ -2409,7 +3059,7 @@ export default function App() {
             <section>
               <h3 className="text-2xl font-black italic text-purple-400 uppercase mb-8 border-l-4 border-purple-400 pl-4">永久插件 (RELICS)</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {shopRelics.map((relic, i) => {
+                {shopRelics?.map((relic, i) => {
                   const price = getPrice(relic.price || 150);
                   return (
                     <div key={relic.id || i} className="flex items-center gap-6 bg-white/5 p-6 rounded-3xl border border-white/10 hover:border-purple-500/30 transition-all group">
@@ -2457,7 +3107,7 @@ export default function App() {
             <section>
               <h3 className="text-2xl font-black italic text-green-400 uppercase mb-8 border-l-4 border-green-400 pl-4">消耗性补给 (CONSUMABLES)</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {shopConsumables.map((item, i) => {
+                {shopConsumables?.map((item, i) => {
                   const price = getPrice(item.price);
                   return (
                     <div key={item.id || i} className="bg-white/5 p-8 rounded-3xl border border-white/10 hover:border-green-500/30 transition-all flex flex-col items-center text-center group">
@@ -2503,10 +3153,10 @@ export default function App() {
         {/* Fixed Navigation with safe area */}
         <div className="shrink-0 w-full py-10 bg-gradient-to-t from-[#05050a] via-[#05050a]/80 to-transparent flex justify-center z-40 pointer-events-none">
           <button 
-            onClick={() => setPhase('HUB')}
+            onClick={() => setPhase('MAP')}
             className="pointer-events-auto px-20 py-5 bg-yellow-400 text-black border-2 border-yellow-400 text-sm font-black uppercase tracking-[0.4em] hover:bg-black hover:text-yellow-400 transition-all rounded-2xl shadow-[0_0_50px_rgba(250,204,21,0.3)]"
           >
-            返回作战中心
+            返回地图 (EXIT SHOP)
           </button>
         </div>
       </div>
@@ -2682,7 +3332,7 @@ export default function App() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6 max-w-7xl mx-auto mb-24">
-          {permanentDeck.map((card, i) => {
+          {permanentDeck?.map((card, i) => {
             const isEquipped = card.isEquipped !== false;
             return (
               <div 
@@ -2741,7 +3391,7 @@ export default function App() {
             {inventory.length === 0 ? (
               <div className="text-center py-8 opacity-40 italic font-mono">背包为空 (EMPTY)</div>
             ) : (
-              inventory.map((item, idx) => (
+              inventory?.map((item, idx) => (
                 <div 
                   key={`${item.id}-${idx}`}
                   className="p-3 bg-white/5 border border-white/10 rounded-xl flex items-center gap-4 hover:border-cyan-500/50 transition-all group"
@@ -2800,7 +3450,7 @@ export default function App() {
           </div>
 
           <div className="grid grid-cols-1 gap-3 relative z-10">
-            {party.map((p, idx) => (
+            {party?.map((p, idx) => (
               <div 
                 key={`${p.id}-${idx}`}
                 className={`p-3 border rounded-xl flex items-center gap-4 transition-all ${idx === activePokemonIndex ? 'bg-purple-500/20 border-purple-500' : 'bg-white/5 border-white/10 hover:border-purple-500/50'}`}
@@ -2847,6 +3497,11 @@ export default function App() {
     setMap(generateMap(5));
     setPhase('MAP');
     setCurrentNodeId(null);
+    // Heal all Pokemon to full HP when starting a new run
+    setParty(prev => prev.map(p => ({ ...p, hp: p.maxHp, shield: 0, statusEffects: [] })));
+    if (player) {
+      setPlayer({ ...player, hp: player.maxHp, shield: 0, statusEffects: [] });
+    }
   };
 
   const renderBattle = () => {
@@ -2874,7 +3529,7 @@ export default function App() {
 
           {/* Floating Texts */}
           <AnimatePresence>
-            {floatingTexts.map(t => (
+            {floatingTexts?.map(t => (
               <motion.div
                 key={t.id}
                 initial={{ opacity: 1, y: t.y, x: t.x }}
@@ -2909,7 +3564,7 @@ export default function App() {
                     <Shield className="w-3 h-3" /> {enemy?.shield}
                   </div>
                 )}
-                {enemy?.statusEffects.map((s, i) => <StatusIcon key={i} effect={s} />)}
+                {enemy?.statusEffects?.map((s, i) => <StatusIcon key={i} effect={s} />)}
               </div>
             </div>
 
@@ -2921,7 +3576,7 @@ export default function App() {
                  <div className="text-[10px] font-mono opacity-40 uppercase">System Time: {new Date().toLocaleTimeString()}</div>
                </div>
                <div className="flex gap-2 mb-2">
-                  {relics.map(r => (
+                  {relics?.map(r => (
                     <div key={r.id} className="w-8 h-8 rounded border border-cyan-400/30 bg-cyan-950/20 flex items-center justify-center group relative cursor-help">
                       <Database className="w-4 h-4 text-cyan-400" />
                       <div className="absolute top-full right-0 mt-2 w-48 p-2 bg-black/90 border border-cyan-400 text-[10px] hidden group-hover:block z-50">
@@ -2946,6 +3601,26 @@ export default function App() {
 
           {/* Battle Arena */}
           <div className="flex-1 flex items-center justify-around relative px-12">
+            {/* Skill Name Overlay */}
+            <AnimatePresence>
+              {activeSkillName && (
+                <motion.div
+                  initial={{ opacity: 0, x: -50, scale: 0.9 }}
+                  animate={{ opacity: 1, x: 0, scale: 1 }}
+                  exit={{ opacity: 0, x: 50, scale: 0.9 }}
+                  className="absolute top-1/4 left-1/2 -translate-x-1/2 z-[100] pointer-events-none"
+                >
+                  <div className="bg-black/60 border border-cyan-500/50 rounded-full backdrop-blur-sm px-8 py-2 shadow-[0_0_30px_rgba(0,255,255,0.2)] flex items-center gap-4">
+                    <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                    <div className="text-xl font-black italic tracking-wider text-white uppercase whitespace-nowrap">
+                      {activeSkillName}
+                    </div>
+                    <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* Player Character */}
             <div className="relative flex flex-col items-center">
               <AnimatePresence>
@@ -2984,7 +3659,33 @@ export default function App() {
               <div className="mt-4 flex flex-col items-center">
                 <span className="text-xl font-black italic uppercase tracking-tighter" style={{ color: player?.color }}>{player?.name}</span>
                 <div className="flex gap-1 mt-2">
-                  {player?.statusEffects.map((s, i) => <StatusIcon key={i} effect={s} />)}
+                  {player?.statusEffects?.map((s, i) => <StatusIcon key={i} effect={s} />)}
+                </div>
+                {/* Skills UI */}
+                <div className="flex gap-2 mt-4">
+                  {player?.skills?.map((skill, i) => (
+                    <button
+                      key={i}
+                      onClick={() => executeSkill(skill)}
+                      disabled={turn !== 'PLAYER' || isAnimating || player!.energy < skill.cost}
+                      className="group relative px-3 py-1 bg-black/40 border border-white/20 rounded hover:border-cyan-400 transition-all disabled:opacity-30"
+                    >
+                      <div className="text-[10px] font-black italic uppercase tracking-tighter text-white/80 group-hover:text-cyan-400">
+                        {skill.name}
+                      </div>
+                      <div className="flex justify-center gap-0.5 mt-1">
+                        {Array.from({ length: skill.cost }).map((_, j) => (
+                          <div key={j} className="w-1.5 h-1.5 bg-cyan-400 rounded-full shadow-[0_0_5px_#00ffff]" />
+                        ))}
+                      </div>
+                      {/* Skill Tooltip */}
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-40 p-2 bg-black/90 border border-cyan-500 rounded text-[10px] hidden group-hover:block z-50">
+                        <div className="font-black text-cyan-400 uppercase mb-1">{skill.name}</div>
+                        <div className="opacity-80">{skill.desc}</div>
+                        <div className="mt-1 text-cyan-400 font-mono">COST: {skill.cost}</div>
+                      </div>
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
@@ -3014,7 +3715,7 @@ export default function App() {
                 <img 
                   src={enemy?.img} 
                   alt={enemy?.name} 
-                  className="w-64 h-64 object-contain drop-shadow-[0_0_50px_rgba(255,0,0,0.2)]" 
+                  className={`w-64 h-64 object-contain drop-shadow-[0_0_50px_rgba(255,0,0,0.2)] ${isCapturing ? 'capture-shake' : ''}`} 
                   referrerPolicy="no-referrer"
                 />
                 {activeVfx?.target === 'ENEMY' && (
@@ -3031,7 +3732,7 @@ export default function App() {
               <div className="mt-4 flex flex-col items-center">
                 <span className="text-xl font-black italic uppercase tracking-tighter" style={{ color: enemy?.color }}>{enemy?.name}</span>
                 <div className="flex gap-1 mt-2">
-                  {enemy?.statusEffects.map((s, i) => <StatusIcon key={i} effect={s} />)}
+                  {enemy?.statusEffects?.map((s, i) => <StatusIcon key={i} effect={s} />)}
                 </div>
               </div>
             </div>
@@ -3061,7 +3762,7 @@ export default function App() {
                         <Shield className="w-3 h-3" /> {player?.shield}
                       </div>
                     )}
-                    {player?.statusEffects.map((s, i) => <StatusIcon key={i} effect={s} />)}
+                    {player?.statusEffects?.map((s, i) => <StatusIcon key={i} effect={s} />)}
                   </div>
                   <div className="flex gap-2 mt-2">
                     <button 
@@ -3112,7 +3813,7 @@ export default function App() {
               {/* Hand */}
               <div className="flex justify-center gap-2 h-64 items-end pb-4">
                 <AnimatePresence>
-                  {hand.map((card, i) => renderCard(card, i))}
+                  {hand?.map((card, i) => renderCard(card, i))}
                 </AnimatePresence>
               </div>
             </div>
@@ -3299,7 +4000,7 @@ export default function App() {
             <div className="space-y-4">
               <p className="text-center text-white/60 font-mono text-sm mb-6">选择要移除的协议 (SELECT PROTOCOL TO PURGE)</p>
               <div className="grid grid-cols-2 gap-4 max-h-[40vh] overflow-y-auto custom-scrollbar p-2">
-                {permanentDeck.map((card, i) => (
+                {permanentDeck?.map((card, i) => (
                   <div 
                     key={card.uid} 
                     onClick={() => {
@@ -3352,7 +4053,7 @@ export default function App() {
             </div>
             
             <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
-              {party.map((p, i) => {
+              {party?.map((p, i) => {
                 const canEvolve = p.evolutionLevel && p.level >= p.evolutionLevel;
                 const nextForm = p.evolvesTo ? POKEMON_DB.find(dbP => dbP.id === p.evolvesTo) : null;
                 
@@ -3393,66 +4094,111 @@ export default function App() {
   const renderContent = () => {
     return (
       <>
+        {isCapturing && <CaptureAnimation onComplete={() => {}} />}
         {showTasks && renderTasks()}
         {showDiagnostic && renderDiagnostic()}
         {showGacha && renderGacha()}
         {showEvolution && renderEvolution()}
         {(() => {
-          if (phase === 'INTRO') return <IntroSequence onComplete={() => setPhase('START')} />;
+          if (phase === 'INTRO') return <IntroSequence onComplete={() => setPhase('STARTER_SELECT')} />;
+          if (phase === 'STARTER_SELECT') return <StarterSelection onSelect={initGame} />;
           if (phase === 'PVP_LOBBY') return renderPVPLobby();
           if (phase === 'PVP_BATTLE') return renderPVPBattle();
           if (phase === 'START') {
-      return (
-        <div className="h-full w-full bg-[#05050a] flex flex-col items-center justify-center p-6 text-white overflow-hidden relative">
-          {renderTasks()}
-          <div className="absolute inset-0 opacity-20 pointer-events-none">
-            <div className="w-full h-full bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%]" />
-          </div>
-          <motion.h1 
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="text-7xl font-black italic tracking-tighter mb-2 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-white to-pink-500 drop-shadow-[0_0_20px_rgba(0,255,255,0.5)]"
-          >
-            赛博宝可梦
-          </motion.h1>
-          <p className="font-mono text-xs tracking-[0.5em] text-cyan-400/60 uppercase mb-12">CYBERPOKE: 战术指令集 (Tactical Protocol)</p>
-          <button 
-            onClick={() => setPhase('SELECT')}
-            className="px-12 py-4 bg-transparent border-2 border-cyan-500 text-cyan-400 font-black uppercase tracking-widest hover:bg-cyan-500 hover:text-black transition-all shadow-[0_0_30px_rgba(0,255,255,0.2)]"
-          >
-            初始化链接
-          </button>
-        </div>
-      );
-    }
+            return (
+              <div className="h-full w-full bg-[#05050a] flex flex-col items-center justify-center p-6 text-white overflow-hidden relative">
+                {renderTasks()}
+                <div className="absolute inset-0 opacity-20 pointer-events-none">
+                  <div className="w-full h-full bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%]" />
+                </div>
+                <motion.h1 
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="text-7xl font-black italic tracking-tighter mb-2 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-white to-pink-500 drop-shadow-[0_0_20px_rgba(0,255,255,0.5)]"
+                >
+                  赛博宝可梦
+                </motion.h1>
+                <p className="font-mono text-xs tracking-[0.5em] text-cyan-400/60 uppercase mb-12">CYBERPOKE: 战术指令集 (Tactical Protocol)</p>
+                <button 
+                  onClick={() => {
+                    if (unlockedPokemonIds.length > 0) {
+                      setPhase('SELECT');
+                    } else {
+                      setPhase('STARTER_SELECT');
+                    }
+                  }}
+                  className="px-12 py-4 bg-transparent border-2 border-cyan-500 text-cyan-400 font-black uppercase tracking-widest hover:bg-cyan-500 hover:text-black transition-all shadow-[0_0_30px_rgba(0,255,255,0.2)]"
+                >
+                  初始化链接
+                </button>
+              </div>
+            );
+          }
     if (phase === 'SELECT') {
+      const displayPokemon = POKEMON_DB.filter(p => {
+        const isUnlocked = unlockedPokemonIds.includes(p.id);
+        const isBaseForm = !p.level || p.level === 1;
+        // Show if unlocked, OR if it's a locked base form
+        return isUnlocked || isBaseForm;
+      });
+
       return (
         <div className="h-full w-full bg-[#05050a] p-8 text-white overflow-y-auto no-scrollbar">
           {renderTasks()}
-          <h2 className="text-4xl font-black italic mb-12 text-center tracking-tighter">选择你的作战终端</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            {POKEMON_DB.map(p => (
-              <motion.div
-                key={p.id}
-                whileHover={{ scale: 1.05, y: -10 }}
-                onClick={() => initGame(p.id)}
-                className={`relative p-6 rounded-2xl border-2 border-white/10 cursor-pointer overflow-hidden group bg-gradient-to-b ${p.bgGradient}`}
-              >
-                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-30 transition-opacity">
-                  <Database className="w-24 h-24" />
-                </div>
-                <img src={p.img} alt={p.name} className="w-48 h-48 object-contain mx-auto mb-6 drop-shadow-[0_0_30px_rgba(255,255,255,0.2)]" referrerPolicy="no-referrer" />
-                <h3 className="text-2xl font-black italic uppercase mb-2" style={{ color: p.color }}>{p.name}</h3>
-                <div className="space-y-1 text-xs font-mono opacity-60">
-                  <p>初始系统完整度: {p.maxHp}</p>
-                  <p>初始核心算力: {p.maxEnergy}</p>
-                  <p>初始等级: {p.level}</p>
-                </div>
-                <div className="mt-6 flex items-center text-cyan-400 font-black text-sm group-hover:translate-x-2 transition-transform">
-                  建立链接 <ChevronRight className="w-4 h-4 ml-1" />
-                </div>
-              </motion.div>
-            ))}
+          <h2 className="text-4xl font-black italic mb-12 text-center tracking-tighter uppercase">作战终端选择 (PROTOCOL SELECTION)</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6 max-w-7xl mx-auto">
+            {displayPokemon?.map(p => {
+              const isUnlocked = unlockedPokemonIds.includes(p.id);
+
+              if (!isUnlocked) {
+                return (
+                  <div
+                    key={p.id}
+                    className="relative p-6 rounded-2xl border-2 border-white/5 bg-white/5 flex flex-col items-center justify-center opacity-50 grayscale"
+                  >
+                    <div className="w-24 h-24 rounded-full border-2 border-white/10 flex items-center justify-center mb-4">
+                      <Database className="w-10 h-10 text-white/20" />
+                    </div>
+                    <h3 className="text-lg font-black italic uppercase mb-2 text-white/30">???</h3>
+                    <div className="text-[10px] font-mono text-white/20 uppercase tracking-widest text-center">
+                      未解锁 (LOCKED)
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <motion.div
+                  key={p.id}
+                  whileHover={{ scale: 1.05, y: -5 }}
+                  onClick={() => initGame(p.id)}
+                  className={`relative p-6 rounded-2xl border-2 border-white/10 cursor-pointer overflow-hidden group bg-gradient-to-b ${p.bgGradient}`}
+                >
+                  <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-30 transition-opacity">
+                    <Database className="w-16 h-16" />
+                  </div>
+                  <img src={p.img} alt={p.name} className="w-24 h-24 object-contain mx-auto mb-4 drop-shadow-[0_0_20px_rgba(255,255,255,0.2)]" referrerPolicy="no-referrer" />
+                  <h3 className="text-lg font-black italic uppercase mb-1 text-center" style={{ color: p.color }}>{p.name.split(' ')[0]}</h3>
+                  <div className="space-y-0.5 text-[10px] font-mono opacity-60 text-center">
+                    <p>LVL: {p.level || 1}</p>
+                    <p>HP: {p.maxHp}</p>
+                  </div>
+                  <div className="mt-4 flex items-center justify-center text-cyan-400 font-black text-[10px] group-hover:scale-110 transition-transform">
+                    建立链接 <ChevronRight className="w-3 h-3 ml-1" />
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+          
+          <div className="mt-16 text-center">
+            <p className="text-sm font-mono text-white/40 uppercase tracking-widest mb-4">通过进化或黑市解锁更多协议 (UNLOCK MORE VIA EVOLUTION OR SHOP)</p>
+            <button 
+              onClick={() => setPhase('HUB')}
+              className="px-8 py-3 border border-white/20 rounded-full text-xs font-black uppercase tracking-widest hover:bg-white/10 transition-all"
+            >
+              返回中心 (RETURN TO HUB)
+            </button>
           </div>
         </div>
       );
@@ -3496,7 +4242,7 @@ export default function App() {
           </motion.div>
 
           <div className="flex gap-6 mb-12">
-            {rewards.map((card, i) => (
+            {rewards?.map((card, i) => (
               <div key={card.uid} onClick={() => {
                 setPermanentDeck(prev => [...prev, { ...card, isEquipped: true }]);
                 setFloor(prev => prev + 1);
@@ -3526,6 +4272,7 @@ export default function App() {
         {renderShop()}
       </>
     );
+    if (phase === 'COLLECTION') return renderCollection();
     if (phase === 'DECK_VIEW') return (
       <>
         {renderInventory()}
@@ -3545,10 +4292,10 @@ export default function App() {
     if (phase === 'ENDLESS') return renderEndless();
 
     return renderBattle();
-  })()}
-</>
-);
-};
+        })()}
+      </>
+    );
+  };
 
   return (
     <div className="h-screen w-screen bg-black overflow-hidden select-none">

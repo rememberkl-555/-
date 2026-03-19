@@ -24,7 +24,7 @@ export interface Card {
   statusEffect?: StatusEffect;
   selfStatusEffect?: StatusEffect;
   desc: string;
-  vfx?: 'electric' | 'fire' | 'psychic' | 'physical' | 'rock' | 'beam' | 'slash' | 'glitch' | 'explosion' | 'freeze' | 'poison';
+  vfx?: 'electric' | 'fire' | 'psychic' | 'physical' | 'rock' | 'beam' | 'slash' | 'glitch' | 'explosion' | 'freeze' | 'poison' | 'buff' | 'heal' | 'shield';
   isExhaust?: boolean;
   isEthereal?: boolean; // Disappears if not played
   isInnate?: boolean; // Starts in hand
@@ -56,8 +56,24 @@ export interface EntityState {
   level: number;
   xp: number;
   nextXp: number;
+  price?: number;
   evolutionLevel?: number;
   evolvesTo?: string;
+    skills?: { 
+      name: string; 
+      desc: string; 
+      cost: number; 
+      damage?: number; 
+      shield?: number; 
+      heal?: number;
+      selfDamage?: number;
+      statusEffect?: StatusEffect;
+      selfStatusEffect?: StatusEffect;
+      vfx?: 'electric' | 'fire' | 'psychic' | 'physical' | 'rock' | 'beam' | 'slash' | 'glitch' | 'explosion' | 'freeze' | 'poison' | 'buff' | 'heal' | 'shield';
+    }[];
+  isBoss?: boolean;
+  isElite?: boolean;
+  rarity?: string;
 }
 
 export interface Relic {
@@ -66,6 +82,7 @@ export interface Relic {
   desc: string;
   icon: string;
   price?: number;
+  rarity?: string;
 }
 
 export interface Consumable {
@@ -117,13 +134,16 @@ export interface EndlessState {
   wave: number;
 }
 
-export type Phase = 'INTRO' | 'START' | 'HUB' | 'MAP' | 'BATTLE' | 'REWARD' | 'SHOP' | 'REST' | 'GAMEOVER' | 'VICTORY' | 'DECK_VIEW' | 'REWARD_TRANSITION' | 'ENDLESS' | 'PVP_LOBBY' | 'PVP_BATTLE';
+export type Phase = 'INTRO' | 'START' | 'STARTER_SELECT' | 'HUB' | 'MAP' | 'BATTLE' | 'REWARD' | 'SHOP' | 'REST' | 'GAMEOVER' | 'VICTORY' | 'DECK_VIEW' | 'REWARD_TRANSITION' | 'ENDLESS' | 'PVP_LOBBY' | 'PVP_BATTLE' | 'COLLECTION' | 'SELECT';
 
 export interface PVPState {
   roomId: string;
   opponentId: string;
   opponentName: string;
   opponentPokemon: EntityState;
+  opponentParty: EntityState[];
+  opponentActiveIndex: number;
+  opponentInventory: Consumable[];
   isMyTurn: boolean;
   turnNumber: number;
   opponentHandCount: number;
